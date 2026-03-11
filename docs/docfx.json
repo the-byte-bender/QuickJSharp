@@ -1,0 +1,55 @@
+{
+    "$schema": "https://dotnet.github.io/docfx/schemas/docfx.schema.json",
+    "build": {
+        "content": [
+            {
+                "files": ["api/**.yml", "api-vb/**.yml"]
+            },
+            {
+                "files": [
+                    "articles/**.md",
+                    "articles/**/toc.yml",
+                    "toc.yml",
+                    "*.md"
+                ]
+            }
+        ],
+        "resource": [
+            {
+                "files": ["images/**"]
+            }
+        ],
+        "overwrite": [
+            {
+                "files": ["apidoc/**.md"],
+                "exclude": ["obj/**"]
+            }
+        ],
+        "dest": "_site",
+        "globalMetadata": {
+            "_appName": "QuickJSharp",
+            "_appTitle": "QuickJSharp Documentation",
+            "_enableSearch": true,
+            "_enableNewTab": true,
+            "pdf": false,
+            "repositoryUrl": "https://github.com/the-byte-bender/quickjsharp"
+        },
+        "template": ["default", "modern"],
+        "postProcessors": [],
+        "markdownEngineName": "markdig",
+        "noLangKeyword": false
+    },
+    "metadata": [
+        {
+            "src": [
+                {
+                    "files": ["QuickJSharp/QuickJSharp.csproj"],
+                    "src": ".."
+                }
+            ],
+            "dest": "api",
+            "disableGitFeatures": false,
+            "disableDefaultFilter": false
+        }
+    ]
+}

@@ -1,0 +1,528 @@
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using QuickJSharp.Native;
+
+namespace QuickJSharp;
+
+/// <summary>
+/// A wrapper around a QuickJS context.
+/// </summary>
+public sealed unsafe class JSContext : IDisposable
+{
+    private QuickJS.JSContext* _ctx;
+    private readonly JSRuntime _rt;
+    private GCHandle _handle;
+
+    internal JSContext(JSRuntime rt, QuickJS.JSContext* ctx)
+    {
+        _rt = rt;
+        _ctx = ctx;
+
+        if (_ctx != null)
+        {
+            // Use a strong handle so the C# wrapper stays alive as long as the native context needs it
+            _handle = GCHandle.Alloc(this);
+            QuickJS.JS_SetContextOpaque(_ctx, (void*)GCHandle.ToIntPtr(_handle));
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static JSContext FromNative(QuickJS.JSContext* ctx)
+    {
+        if (ctx == null) throw new ArgumentNullException(nameof(ctx));
+
+        IntPtr ptr = (IntPtr)QuickJS.JS_GetContextOpaque(ctx);
+        if (ptr != IntPtr.Zero)
+        {
+            var h = GCHandle.FromIntPtr(ptr);
+            if (h.Target is JSContext existing) return existing;
+        }
+
+        var rt = JSRuntime.FromNative(QuickJS.JS_GetRuntime(ctx));
+        return new JSContext(rt, ctx);
+    }
+
+    public QuickJS.JSContext* NativeContext => _ctx;
+    public JSRuntime Runtime => _rt;
+
+    /// <summary>
+    /// The global object of this context.
+    /// </summary>
+    public JSValue GlobalObject => new(QuickJS.JS_GetGlobalObject(_ctx));
+
+    /// <summary>
+    /// Check if there is a pending exception.
+    /// </summary>
+    public bool HasException => QuickJS.JS_HasException(_ctx);
+
+    /// <summary>
+    /// Get the pending exception and clear it.
+    /// </summary>
+    public JSValue GetException() => new(QuickJS.JS_GetException(_ctx));
+
+    /// <summary>
+    /// Clear the current exception.
+    /// </summary>
+    public void ClearException() => QuickJS.JS_FreeValue(_ctx, QuickJS.JS_GetException(_ctx));
+
+    /// <summary>
+    /// Sets the current pending exception.
+    /// </summary>
+    public JSValue Throw(JSValue error) => new(QuickJS.JS_Throw(_ctx, error.NativeValue));
+
+    /// <summary>
+    /// Throws a generic Error with the given message.
+    /// </summary>
+    public JSValue ThrowError(string message)
+    {
+        if (message is null) return new JSValue(QuickJS.JS_ThrowInternalError(_ctx, null));
+        int maxLen = JSUtils.GetMaxByteCount(message.Length);
+        if (maxLen <= 512)
+        {
+            byte* pMsg = stackalloc byte[512];
+            JSUtils.GetUtf8(message, pMsg, 512);
+            return new JSValue(QuickJS.JS_ThrowInternalError(_ctx, pMsg));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pMsg = array)
+            {
+                JSUtils.GetUtf8(message, pMsg, maxLen);
+                return new JSValue(QuickJS.JS_ThrowInternalError(_ctx, pMsg));
+            }
+        }
+        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+    }
+
+    /// <summary>
+    /// Throws a TypeError with the given message.
+    /// </summary>
+    public JSValue ThrowTypeError(string message)
+    {
+        if (message is null) return new JSValue(QuickJS.JS_ThrowTypeError(_ctx, null));
+        int maxLen = JSUtils.GetMaxByteCount(message.Length);
+        if (maxLen <= 512)
+        {
+            byte* pMsg = stackalloc byte[512];
+            JSUtils.GetUtf8(message, pMsg, 512);
+            return new JSValue(QuickJS.JS_ThrowTypeError(_ctx, pMsg));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pMsg = array)
+            {
+                JSUtils.GetUtf8(message, pMsg, maxLen);
+                return new JSValue(QuickJS.JS_ThrowTypeError(_ctx, pMsg));
+            }
+        }
+        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+    }
+
+    /// <summary>
+    /// Creates a new Javascript string.
+    /// </summary>
+    public JSValue NewString(string value)
+    {
+        if (value is null) return new JSValue(QuickJS.JS_NewString(_ctx, null));
+        int maxLen = JSUtils.GetMaxByteCount(value.Length);
+        if (maxLen <= 512)
+        {
+            byte* pStr = stackalloc byte[512];
+            JSUtils.GetUtf8(value, pStr, 512);
+            return new JSValue(QuickJS.JS_NewString(_ctx, pStr));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pStr = array)
+            {
+                JSUtils.GetUtf8(value, pStr, maxLen);
+                return new JSValue(QuickJS.JS_NewString(_ctx, pStr));
+            }
+        }
+        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+    }
+
+    /// <summary>
+    /// Creates a new Javascript Int32.
+    /// </summary>
+    public JSValue NewInt32(int value) => new(QuickJS.JS_NewInt32(_ctx, value));
+
+    /// <summary>
+    /// Creates a new Javascript BigInt from a 64-bit signed integer.
+    /// </summary>
+    public JSValue NewBigInt64(long value) => new(QuickJS.JS_NewBigInt64(_ctx, value));
+
+    /// <summary>
+    /// Creates a new Javascript BigInt from a 64-bit unsigned integer.
+    /// </summary>
+    public JSValue NewBigUint64(ulong value) => new(QuickJS.JS_NewBigUint64(_ctx, value));
+
+    /// <summary>
+    /// Creates a new empty Javascript object.
+    /// </summary>
+    public JSValue NewObject() => new(QuickJS.JS_NewObject(_ctx));
+
+    /// <summary>
+    /// Creates a new empty Javascript array.
+    /// </summary>
+    public JSValue NewArray() => new(QuickJS.JS_NewArray(_ctx));
+
+    /// <summary>
+    /// Creates a new Javascript Error object.
+    /// </summary>
+    public JSValue NewError() => new(QuickJS.JS_NewError(_ctx));
+
+    /// <summary>
+    /// Creates a new Javascript Date object.
+    /// </summary>
+    public JSValue NewDate(double epochMs) => new(QuickJS.JS_NewDate(_ctx, epochMs));
+
+    /// <summary>
+    /// Creates a new native module builder for this context.
+    /// </summary>
+    /// <param name="name">The name of the module.</param>
+    /// <returns>A module builder instance.</returns>
+    public JSModuleBuilder CreateModule(string name) => new(this, name);
+
+    /// <summary>
+    /// Creates a new C module.
+    /// </summary>
+    /// <param name="name">The name of the module.</param>
+    /// <param name="init">The module initialization callback.</param>
+    /// <returns>The module, or <c>null</c> if it could not be created.</returns>
+    public JSModule? NewModule(string name, JSModuleInitDelegate init)
+    {
+        if (name is null) throw new ArgumentNullException(nameof(name));
+        if (init is null) throw new ArgumentNullException(nameof(init));
+
+        int maxLen = JSUtils.GetMaxByteCount(name.Length);
+        QuickJS.JSModuleDef* m;
+        if (maxLen <= 512)
+        {
+            byte* pName = stackalloc byte[512];
+            JSUtils.GetUtf8(name, pName, 512);
+            m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
+        }
+        else
+        {
+            byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+            try
+            {
+                fixed (byte* pName = array)
+                {
+                    JSUtils.GetUtf8(name, pName, maxLen);
+                    m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
+                }
+            }
+            finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        }
+
+        if (m == null) return null;
+
+        // Map the ModuleDef pointer to its initialization delegate for robust callback routing
+        _moduleInits ??= [];
+        _moduleInits[(IntPtr)m] = init;
+
+        return new JSModule(this, m);
+    }
+
+    private Dictionary<IntPtr, JSModuleInitDelegate>? _moduleInits;
+
+    public delegate int JSModuleInitDelegate(JSContext ctx, JSModule m);
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static int NativeModuleInit(QuickJS.JSContext* ctx, QuickJS.JSModuleDef* m)
+    {
+        var jsCtx = JSContext.FromNative(ctx);
+        IntPtr key = (IntPtr)m;
+
+        try
+        {
+            // Robust routing: Ensure we call the correct initialization delegate for this specific module
+            if (jsCtx._moduleInits != null && jsCtx._moduleInits.TryGetValue(key, out var init))
+            {
+                // We don't remove it here because QuickJS might call init multiple times in some versions 
+                // or if evaluation is triggered repeatedly (though usually once per realm).
+                return init(jsCtx, new JSModule(jsCtx, m));
+            }
+        }
+        catch (Exception ex)
+        {
+            // Set a JS exception so the engine knows why it failed
+            jsCtx.ThrowError(ex.Message);
+            return -1;
+        }
+
+        return -1;
+    }
+
+
+    /// <summary>
+    /// Creates a JS function from a delegate.
+    /// </summary>
+    public JSValue NewFunction(JSValue.JSFunction func, string name, int length = 0)
+    {
+        GCHandle handle = GCHandle.Alloc(func);
+        void* pOpaque = (void*)GCHandle.ToIntPtr(handle);
+        int maxLen = JSUtils.GetMaxByteCount(name.Length);
+        if (maxLen <= 512)
+        {
+            byte* pName = stackalloc byte[512];
+            JSUtils.GetUtf8(name, pName, 512);
+            return new JSValue(QuickJS.JS_NewCClosure(_ctx, &JSValue.ManagedFunctionBridge, pName, &JSValue.ManagedFunctionFinalizer, length, 0, pOpaque));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pName = array)
+            {
+                JSUtils.GetUtf8(name, pName, maxLen);
+                return new JSValue(QuickJS.JS_NewCClosure(_ctx, &JSValue.ManagedFunctionBridge, pName, &JSValue.ManagedFunctionFinalizer, length, 0, pOpaque));
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
+    }
+
+    /// <summary>
+    /// Creates a JS function from a raw unmanaged C function pointer.
+    /// </summary>
+    public JSValue NewFunctionRaw(delegate* unmanaged[Cdecl]<QuickJS.JSContext*, QuickJS.JSValue, int, QuickJS.JSValue*, QuickJS.JSValue> func, string name, int length = 0)
+    {
+        int maxLen = JSUtils.GetMaxByteCount(name.Length);
+        if (maxLen <= 512)
+        {
+            byte* pName = stackalloc byte[512];
+            JSUtils.GetUtf8(name, pName, 512);
+            return new JSValue(QuickJS.JS_NewCFunction(_ctx, func, pName, length));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pName = array)
+            {
+                JSUtils.GetUtf8(name, pName, maxLen);
+                return new JSValue(QuickJS.JS_NewCFunction(_ctx, func, pName, length));
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
+    }
+
+    /// <summary>
+    /// Evaluates a script.
+    /// </summary>
+    public JSValue Eval(string script, string filename = "input", JSEvalFlags flags = JSEvalFlags.Global)
+    {
+        if (script is null) return default;
+
+        int scriptMax = JSUtils.GetMaxByteCount(script.Length);
+        int fileMax = JSUtils.GetMaxByteCount(filename.Length);
+
+        byte* pScript = null;
+        byte[]? scriptArray = null;
+        byte* pFile = null;
+        byte[]? fileArray = null;
+
+        try
+        {
+            if (scriptMax <= 512)
+            {
+                byte* pStack = stackalloc byte[512];
+                pScript = pStack;
+            }
+            else
+            {
+                scriptArray = System.Buffers.ArrayPool<byte>.Shared.Rent(scriptMax);
+            }
+
+            if (fileMax <= 512)
+            {
+                byte* pStack = stackalloc byte[512];
+                pFile = pStack;
+            }
+            else
+            {
+                fileArray = System.Buffers.ArrayPool<byte>.Shared.Rent(fileMax);
+            }
+
+            fixed (byte* pS = scriptArray, pF = fileArray)
+            {
+                byte* sPtr = pScript != null ? pScript : pS;
+                byte* fPtr = pFile != null ? pFile : pF;
+
+                int sLen = JSUtils.GetUtf8(script, sPtr, scriptMax);
+                JSUtils.GetUtf8(filename, fPtr, fileMax);
+
+                return new JSValue(QuickJS.JS_Eval(_ctx, sPtr, (nuint)sLen, fPtr, (int)flags));
+            }
+        }
+        finally
+        {
+            if (scriptArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(scriptArray);
+            if (fileArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(fileArray);
+        }
+    }
+
+    /// <summary>
+    /// Execute a bytecode object (JSValue with TAG_FUNCTION_BYTECODE).
+    /// </summary>
+    public JSValue EvalFunction(JSValue bytecode) => new(QuickJS.JS_EvalFunction(_ctx, bytecode.NativeValue));
+
+    /// <summary>
+    /// Serialize a JSValue to bytecode.
+    /// </summary>
+    /// <param name="value">The value to serialize.</param>
+    /// <param name="flags">Serialization flags.</param>
+    /// <returns>A new byte array containing the bytecode.</returns>
+    public byte[]? WriteObject(JSValue value, JSWriteObjectFlags flags = JSWriteObjectFlags.Bytecode)
+    {
+        nuint size;
+        byte* ptr = QuickJS.JS_WriteObject(_ctx, &size, value.NativeValue, (int)flags);
+        if (ptr == null) return null;
+
+        try
+        {
+            byte[] result = new byte[(int)size];
+            new ReadOnlySpan<byte>(ptr, (int)size).CopyTo(result);
+            return result;
+        }
+        finally
+        {
+            QuickJS.js_free(_ctx, ptr);
+        }
+    }
+
+    /// <summary>
+    /// Serialize a JSValue into a provided buffer.
+    /// </summary>
+    /// <param name="value">The value to serialize.</param>
+    /// <param name="buffer">The buffer to write into.</param>
+    /// <param name="written">The number of bytes written.</param>
+    /// <param name="flags">Serialization flags.</param>
+    /// <returns>True if the buffer was large enough and the write succeeded; otherwise false.</returns>
+    public bool TryWriteObject(JSValue value, Span<byte> buffer, out int written, JSWriteObjectFlags flags = JSWriteObjectFlags.Bytecode)
+    {
+        nuint size;
+        byte* ptr = QuickJS.JS_WriteObject(_ctx, &size, value.NativeValue, (int)flags);
+        written = 0;
+
+        if (ptr == null) return false;
+
+        try
+        {
+            int intSize = (int)size;
+            if (buffer.Length < intSize) return false;
+
+            new ReadOnlySpan<byte>(ptr, intSize).CopyTo(buffer);
+            written = intSize;
+            return true;
+        }
+        finally
+        {
+            QuickJS.js_free(_ctx, ptr);
+        }
+    }
+
+    /// <summary>
+    /// Deserialize a JSValue from bytecode.
+    /// </summary>
+    public JSValue ReadObject(ReadOnlySpan<byte> bytecode, JSReadObjectFlags flags = JSReadObjectFlags.Bytecode)
+    {
+        fixed (byte* pBuf = bytecode)
+        {
+            return new JSValue(QuickJS.JS_ReadObject(_ctx, pBuf, (nuint)bytecode.Length, (int)flags));
+        }
+    }
+
+    /// <summary>
+    /// Parse a JSON string.
+    /// </summary>
+    public JSValue ParseJson(string json, string filename = "input.json")
+    {
+        if (json is null) return default;
+
+        int jsonMax = JSUtils.GetMaxByteCount(json.Length);
+        int fileMax = JSUtils.GetMaxByteCount(filename.Length);
+
+        byte* pJson = null;
+        byte[]? jsonArray = null;
+        byte* pFile = null;
+        byte[]? fileArray = null;
+
+        try
+        {
+            if (jsonMax <= 512)
+            {
+                byte* pStack = stackalloc byte[512];
+                pJson = pStack;
+            }
+            else
+            {
+                jsonArray = System.Buffers.ArrayPool<byte>.Shared.Rent(jsonMax);
+            }
+
+            if (fileMax <= 512)
+            {
+                byte* pStack = stackalloc byte[512];
+                pFile = pStack;
+            }
+            else
+            {
+                fileArray = System.Buffers.ArrayPool<byte>.Shared.Rent(fileMax);
+            }
+
+            fixed (byte* pJ = jsonArray, pF = fileArray)
+            {
+                byte* jPtr = pJson != null ? pJson : pJ;
+                byte* fPtr = pFile != null ? pFile : pF;
+
+                int jLen = JSUtils.GetUtf8(json, jPtr, jsonMax);
+                JSUtils.GetUtf8(filename, fPtr, fileMax);
+
+                return new JSValue(QuickJS.JS_ParseJSON(_ctx, jPtr, (nuint)jLen, fPtr));
+            }
+        }
+        finally
+        {
+            if (jsonArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(jsonArray);
+            if (fileArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(fileArray);
+        }
+    }
+
+    /// <summary>
+    /// Stringify a JSValue to JSON.
+    /// </summary>
+    public string? JSONStringify(JSValue obj, JSValue replacer = default, JSValue space = default)
+    {
+        JSValue strVal = new(QuickJS.JS_JSONStringify(_ctx, obj.NativeValue, replacer.NativeValue, space.NativeValue));
+        if (strVal.IsException) return null;
+        try { return strVal.ToString(this); }
+        finally { strVal.Free(this); }
+    }
+
+    public void Dispose()
+    {
+        if (_ctx != null)
+        {
+            QuickJS.JS_FreeContext(_ctx);
+            _ctx = null;
+        }
+        if (_handle.IsAllocated)
+        {
+            _handle.Free();
+        }
+        GC.SuppressFinalize(this);
+    }
+
+    ~JSContext() => Dispose();
+}
+
+

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="QuickJSharp/QuickJSharp.csproj" />
+  <Project Path="QuickJSharp.Tests/QuickJSharp.Tests.csproj" />
+</Solution>
