@@ -33,7 +33,7 @@ public static unsafe partial class QuickJS
      */
 
 
-    public enum JSTag : int
+    public enum JSTag : long
     {
         /* all tags with a reference count are negative */
         FIRST = -9, /* first negative tag */

@@ -206,10 +206,29 @@ public sealed unsafe class JSRuntime : IDisposable
         return usage;
     }
 
+    /// <summary>
+    /// Creates a new Javascript context for this runtime with all intrinsics.
+    /// </summary>
+    /// <returns>A new <see cref="JSContext"/> instance.</returns>
     public JSContext CreateContext()
     {
-        var ctx = QuickJS.JS_NewContext(_rt);
+        QuickJS.JSContext* ctx = QuickJS.JS_NewContext(_rt);
         if (ctx == null) throw new InvalidOperationException("Failed to create QuickJS context.");
+        return new JSContext(this, ctx);
+    }
+
+    /// <summary>
+    /// Creates a new raw Javascript context for this runtime without any standard intrinsics.
+    /// </summary>
+    /// <remarks>
+    /// A raw context contains no standard Javascript globals (no Object, Array, etc.).
+    /// Standard features must be added manually using the <c>AddIntrinsic...</c> methods in <see cref="JSContext"/>.
+    /// </remarks>
+    /// <returns>A new raw <see cref="JSContext"/> instance.</returns>
+    public JSContext CreateRawContext()
+    {
+        QuickJS.JSContext* ctx = QuickJS.JS_NewContextRaw(_rt);
+        if (ctx == null) throw new InvalidOperationException("Failed to create raw QuickJS context.");
         return new JSContext(this, ctx);
     }
 

@@ -38,7 +38,7 @@ public readonly unsafe struct JSValue
     }
 
     public QuickJS.JSValue NativeValue => _value;
-    public QuickJS.JSTag Tag => (QuickJS.JSTag)QuickJS.JS_VALUE_GET_TAG(_value);
+    public QuickJS.JSTag Tag => (QuickJS.JSTag)_value.tag;
 
     public bool IsNumber => Tag is QuickJS.JSTag.INT or QuickJS.JSTag.FLOAT64;
     public bool IsString => Tag is QuickJS.JSTag.STRING or QuickJS.JSTag.STRING_ROPE;
@@ -225,8 +225,17 @@ public readonly unsafe struct JSValue
 
     public string? ToString(JSContext ctx)
     {
-        if (IsNull) return "null";
-        if (IsUndefined) return "undefined";
+        if (IsException)
+        {
+            QuickJS.JSValue exVal = QuickJS.JS_GetException(ctx.NativeContext);
+            byte* exPtr = QuickJS.JS_ToCString(ctx.NativeContext, exVal);
+            try { return exPtr == null ? "Exception (could not stringify)" : Marshal.PtrToStringUTF8((IntPtr)exPtr); }
+            finally 
+            { 
+                if (exPtr != null) QuickJS.JS_FreeCString(ctx.NativeContext, exPtr);
+                QuickJS.JS_FreeValue(ctx.NativeContext, exVal); 
+            }
+        }
 
         byte* ptr = QuickJS.JS_ToCString(ctx.NativeContext, _value);
         if (ptr == null) return null;
@@ -240,7 +249,6 @@ public readonly unsafe struct JSValue
     public bool TryWriteUtf8(JSContext ctx, Span<byte> buffer, out int written)
     {
         written = 0;
-        if (IsNull || IsUndefined) return false;
 
         nuint len;
         byte* ptr = QuickJS.JS_ToCStringLen(ctx.NativeContext, &len, _value);

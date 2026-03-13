@@ -202,6 +202,75 @@ public sealed unsafe class JSContext : IDisposable
     public JSValue NewDate(double epochMs) => new(QuickJS.JS_NewDate(_ctx, epochMs));
 
     /// <summary>
+    /// Adds standard Javascript base objects (Object, Function, Number, String, Math, etc.) to this context.
+    /// </summary>
+    public void AddIntrinsicBaseObjects() => QuickJS.JS_AddIntrinsicBaseObjects(_ctx);
+
+    /// <summary>
+    /// Adds the Date object to this context.
+    /// </summary>
+    public void AddIntrinsicDate() => QuickJS.JS_AddIntrinsicDate(_ctx);
+
+    /// <summary>
+    /// Adds support for the <See cref="Eval"/> method, the global eval() function and string-to-code compilation (e.g. via 'new Function()').
+    /// </summary>
+    public void AddIntrinsicEval() => QuickJS.JS_AddIntrinsicEval(_ctx);
+
+    /// <summary>
+    /// Adds support for regular expressions and the RegExp object.
+    /// </summary>
+    public void AddIntrinsicRegExp()
+    {
+        QuickJS.JS_AddIntrinsicRegExpCompiler(_ctx);
+        QuickJS.JS_AddIntrinsicRegExp(_ctx);
+    }
+
+    /// <summary>
+    /// Adds the JSON object for parsing and stringifying.
+    /// </summary>
+    public void AddIntrinsicJSON() => QuickJS.JS_AddIntrinsicJSON(_ctx);
+
+    /// <summary>
+    /// Adds support for the Proxy object.
+    /// </summary>
+    public void AddIntrinsicProxy() => QuickJS.JS_AddIntrinsicProxy(_ctx);
+
+    /// <summary>
+    /// Adds Map, Set, WeakMap, and WeakSet collections.
+    /// </summary>
+    public void AddIntrinsicMapSet() => QuickJS.JS_AddIntrinsicMapSet(_ctx);
+
+    /// <summary>
+    /// Adds TypedArrays (Uint8Array, etc.) and ArrayBuffer constructors.
+    /// </summary>
+    public void AddIntrinsicTypedArrays() => QuickJS.JS_AddIntrinsicTypedArrays(_ctx);
+
+    /// <summary>
+    /// Adds Promise support and async/await functionality.
+    /// </summary>
+    public void AddIntrinsicPromise() => QuickJS.JS_AddIntrinsicPromise(_ctx);
+
+    /// <summary>
+    /// Adds support for the BigInt object.
+    /// </summary>
+    public void AddIntrinsicBigInt() => QuickJS.JS_AddIntrinsicBigInt(_ctx);
+
+    /// <summary>
+    /// Adds WeakRef and FinalizationRegistry support.
+    /// </summary>
+    public void AddIntrinsicWeakRef() => QuickJS.JS_AddIntrinsicWeakRef(_ctx);
+
+    /// <summary>
+    /// Adds the performance object (performance.now(), etc.).
+    /// </summary>
+    public void AddPerformance() => QuickJS.JS_AddPerformance(_ctx);
+
+    /// <summary>
+    /// Adds the DOMException error type.
+    /// </summary>
+    public void AddIntrinsicDOMException() => QuickJS.JS_AddIntrinsicDOMException(_ctx);
+
+    /// <summary>
     /// Creates a new native module builder for this context.
     /// </summary>
     /// <param name="name">The name of the module.</param>
@@ -407,7 +476,13 @@ public sealed unsafe class JSContext : IDisposable
     {
         nuint size;
         byte* ptr = QuickJS.JS_WriteObject(_ctx, &size, value.NativeValue, (int)flags);
-        if (ptr == null) return null;
+        if (ptr == null)
+        {
+            var ex = GetException();
+            if (ex.IsException) return null; // Already an exception
+            if (ex.IsNull || ex.IsUndefined) return null;
+            throw new Exception("WriteObject failed: " + ex.ToString(this));
+        }
 
         try
         {
@@ -422,13 +497,24 @@ public sealed unsafe class JSContext : IDisposable
     }
 
     /// <summary>
-    /// Serialize a JSValue into a provided buffer.
+    /// Deserialize a JSValue from bytecode.
     /// </summary>
-    /// <param name="value">The value to serialize.</param>
-    /// <param name="buffer">The buffer to write into.</param>
-    /// <param name="written">The number of bytes written.</param>
-    /// <param name="flags">Serialization flags.</param>
-    /// <returns>True if the buffer was large enough and the write succeeded; otherwise false.</returns>
+    /// <param name="bytecode">The bytecode to deserialize.</param>
+    /// <param name="flags">Deserialization flags.</param>
+    /// <returns>The deserialized value.</returns>
+    public JSValue ReadObject(ReadOnlySpan<byte> bytecode, JSReadObjectFlags flags = JSReadObjectFlags.Bytecode)
+    {
+        fixed (byte* pBuf = bytecode)
+        {
+            var res = new JSValue(QuickJS.JS_ReadObject(_ctx, pBuf, (nuint)bytecode.Length, (int)flags));
+            if (res.IsException)
+            {
+                var ex = GetException();
+                throw new Exception("ReadObject failed: " + ex.ToString(this));
+            }
+            return res;
+        }
+    }
     public bool TryWriteObject(JSValue value, Span<byte> buffer, out int written, JSWriteObjectFlags flags = JSWriteObjectFlags.Bytecode)
     {
         nuint size;
@@ -449,17 +535,6 @@ public sealed unsafe class JSContext : IDisposable
         finally
         {
             QuickJS.js_free(_ctx, ptr);
-        }
-    }
-
-    /// <summary>
-    /// Deserialize a JSValue from bytecode.
-    /// </summary>
-    public JSValue ReadObject(ReadOnlySpan<byte> bytecode, JSReadObjectFlags flags = JSReadObjectFlags.Bytecode)
-    {
-        fixed (byte* pBuf = bytecode)
-        {
-            return new JSValue(QuickJS.JS_ReadObject(_ctx, pBuf, (nuint)bytecode.Length, (int)flags));
         }
     }
 

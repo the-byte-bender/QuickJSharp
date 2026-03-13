@@ -1,5 +1,3 @@
-using QuickJSharp;
-
 namespace QuickJSharp.Tests;
 
 public class ModuleTests : IDisposable
