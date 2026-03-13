@@ -66,6 +66,10 @@ public sealed class JSModuleBuilder
                 module.Value.AddExport(entry.Name);
             }
         }
+        else
+        {
+            throw new InvalidOperationException($"Failed to create module '{_name}'");
+        }
 
         return module.Value;
     }

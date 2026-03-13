@@ -26,8 +26,7 @@ public enum JSEvalFlags
 
     /// <summary>
     /// Compile the script but do not execute it. 
-    /// The returned <see cref="JSValue"/> has the tag <see cref="QuickJS.JSTag.FUNCTION_BYTECODE"/> 
-    /// or <see cref="QuickJS.JSTag.MODULE"/>. It can be executed later using <see cref="JSContext.EvalFunction"/>.
+    /// The returned result is a bytecode object that can be executed later.
     /// </summary>
     CompileOnly = QuickJS.JS_EVAL_FLAG_COMPILE_ONLY,
 
@@ -39,8 +38,8 @@ public enum JSEvalFlags
 
     /// <summary>
     /// Allow top-level await in normal scripts. 
-    /// When used, <see cref="JSContext.Eval"/> returns a Promise if top-level await is encountered.
-    /// Only compatible with <see cref="Global"/>.
+    /// When used, evaluation returns a Promise if top-level await is encountered.
+    /// Only compatible with <see cref="Global"/>. <see cref="Module"/> always allows top-level await.
     /// </summary>
     Async = QuickJS.JS_EVAL_FLAG_ASYNC,
 }
@@ -112,25 +111,188 @@ public enum JSReadObjectFlags
 }
 
 /// <summary>
-/// Flags for property enumeration used by <see cref="QuickJS.JS_GetOwnPropertyNames"/>.
+/// Flags for dumping runtime information and internal diagnostics.
+/// </summary>
+/// <remarks>
+/// QuickJS compilation happens in multiple passes:
+/// <list type="bullet">
+/// <item><description>Pass 1: Syntax analysis and basic instruction generation.</description></item>
+/// <item><description>Pass 2: Variable resolution and stack usage computation.</description></item>
+/// <item><description>Pass 3: Final peephole optimization and bytecode generation.</description></item>
+/// </list>
+/// </remarks>
+[Flags]
+public enum JSDumpFlags : ulong
+{
+    /// <summary>
+    /// Dump the final bytecode after pass 3 optimizations.
+    /// </summary>
+    BytecodeFinal = QuickJS.JS_DUMP_BYTECODE_FINAL,
+
+    /// <summary>
+    /// Dump the intermediate bytecode after pass 2.
+    /// </summary>
+    BytecodePass2 = QuickJS.JS_DUMP_BYTECODE_PASS2,
+
+    /// <summary>
+    /// Dump the initial raw bytecode after pass 1.
+    /// </summary>
+    BytecodePass1 = QuickJS.JS_DUMP_BYTECODE_PASS1,
+
+    /// <summary>
+    /// Dump the bytecode in hexadecimal format.
+    /// </summary>
+    BytecodeHex = QuickJS.JS_DUMP_BYTECODE_HEX,
+
+    /// <summary>
+    /// Dump the Program Counter (PC) to line number mapping table.
+    /// </summary>
+    BytecodePc2Line = QuickJS.JS_DUMP_BYTECODE_PC2LINE,
+
+    /// <summary>
+    /// Dump computed stack sizes and frame layouts.
+    /// </summary>
+    BytecodeStack = QuickJS.JS_DUMP_BYTECODE_STACK,
+
+    /// <summary>
+    /// Dump each instruction to console as it is executed (Interpreter trace).
+    /// </summary>
+    BytecodeStep = QuickJS.JS_DUMP_BYTECODE_STEP,
+
+    /// <summary>
+    /// Dump the deserialized objects during loading.
+    /// </summary>
+    ReadObject = QuickJS.JS_DUMP_READ_OBJECT,
+
+    /// <summary>
+    /// Dump a trace of all managed memory releases.
+    /// </summary>
+    Free = QuickJS.JS_DUMP_FREE,
+
+    /// <summary>
+    /// Dump a trace of Garbage Collection cycles.
+    /// </summary>
+    GC = QuickJS.JS_DUMP_GC,
+
+    /// <summary>
+    /// Dump a trace of memory specifically released by the GC.
+    /// </summary>
+    GCFree = QuickJS.JS_DUMP_GC_FREE,
+
+    /// <summary>
+    /// Trace the steps of the module resolver.
+    /// </summary>
+    ModuleResolve = QuickJS.JS_DUMP_MODULE_RESOLVE,
+
+    /// <summary>
+    /// Trace Promise creation, resolution, and microtask scheduling.
+    /// </summary>
+    Promise = QuickJS.JS_DUMP_PROMISE,
+
+    /// <summary>
+    /// Report memory leaks (objects/strings) upon runtime destruction.
+    /// </summary>
+    Leaks = QuickJS.JS_DUMP_LEAKS,
+
+    /// <summary>
+    /// Report leaked internal atoms upon runtime destruction.
+    /// </summary>
+    AtomLeaks = QuickJS.JS_DUMP_ATOM_LEAKS,
+
+    /// <summary>
+    /// Dump final memory allocation statistics.
+    /// </summary>
+    Mem = QuickJS.JS_DUMP_MEM,
+
+    /// <summary>
+    /// Dump the internal state of all remaining objects on cleanup.
+    /// </summary>
+    Objects = QuickJS.JS_DUMP_OBJECTS,
+
+    /// <summary>
+    /// Dump all remaining atoms on cleanup.
+    /// </summary>
+    Atoms = QuickJS.JS_DUMP_ATOMS,
+
+    /// <summary>
+    /// Dump all remaining shapes (hidden classes) on cleanup.
+    /// </summary>
+    Shapes = QuickJS.JS_DUMP_SHAPES,
+}
+
+/// <summary>
+/// Flags for property descriptors and property definition.
 /// </summary>
 [Flags]
 public enum JSPropertyFlags
 {
     /// <summary>
+    /// The property is configurable (can be deleted or changed).
+    /// </summary>
+    Configurable = QuickJS.JS_PROP_CONFIGURABLE,
+
+    /// <summary>
+    /// The property is writable (its value can be changed).
+    /// </summary>
+    Writable = QuickJS.JS_PROP_WRITABLE,
+
+    /// <summary>
+    /// The property is enumerable (appears in for-in loops).
+    /// </summary>
+    Enumerable = QuickJS.JS_PROP_ENUMERABLE,
+
+    /// <summary>
+    /// Shortcut for Configurable | Writable | Enumerable.
+    /// </summary>
+    CWEL = QuickJS.JS_PROP_C_W_E,
+
+    /// <summary>
+    /// Internal flag used by QuickJS to identify the magic 'length' property of Arrays.
+    /// Defining custom properties with this flag is not supported and may cause instability.
+    /// </summary>
+    Length = QuickJS.JS_PROP_LENGTH,
+
+    /// <summary>
+    /// Normal property with absolute value.
+    /// </summary>
+    Normal = QuickJS.JS_PROP_NORMAL,
+
+    /// <summary>
+    /// Property with getter and/or setter.
+    /// </summary>
+    GetSet = QuickJS.JS_PROP_GETSET,
+
+    /// <summary>
+    /// Throw an exception if the operation fails.
+    /// </summary>
+    Throw = QuickJS.JS_PROP_THROW,
+
+    /// <summary>
+    /// Throw an exception if the operation fails in strict mode.
+    /// </summary>
+    ThrowStrict = QuickJS.JS_PROP_THROW_STRICT,
+}
+
+/// <summary>
+/// Flags for retrieving property names from an object.
+/// </summary>
+[Flags]
+public enum JSGetPropertyNamesFlags
+{
+    /// <summary>
     /// Include string-keyed properties.
     /// </summary>
-    StringMask = QuickJS.JS_GPN_STRING_MASK,
+    String = QuickJS.JS_GPN_STRING_MASK,
 
     /// <summary>
     /// Include symbol-keyed properties.
     /// </summary>
-    SymbolMask = QuickJS.JS_GPN_SYMBOL_MASK,
+    Symbol = QuickJS.JS_GPN_SYMBOL_MASK,
 
     /// <summary>
     /// Include private-keyed properties.
     /// </summary>
-    PrivateMask = QuickJS.JS_GPN_PRIVATE_MASK,
+    Private = QuickJS.JS_GPN_PRIVATE_MASK,
 
     /// <summary>
     /// Only include enumerable properties.
@@ -138,8 +300,9 @@ public enum JSPropertyFlags
     EnumOnly = QuickJS.JS_GPN_ENUM_ONLY,
 
     /// <summary>
-    /// Set the enumerable bit for the returned property names.
+    /// Set the enumerable flag in the result.
     /// </summary>
     SetEnum = QuickJS.JS_GPN_SET_ENUM,
 }
+
 

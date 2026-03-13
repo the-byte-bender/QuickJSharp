@@ -17,8 +17,8 @@ rt.ModuleLoader = (c, name) =>
     if (name == "calc")
     {
         return c.CreateModule(name)
-            .Export("add", ctx => ctx.NewFunction((c, _, args) => args[0].ToDouble(ctx) + args[1].ToDouble(ctx), "add"))
-            .Export("sub", ctx => ctx.NewFunction((c, _, args) => args[0].ToDouble(c) - args[1].ToDouble(c), "sub"))
+            .Export("add", ctx => ctx.NewFunction((c, _, args) => c.NewDouble(args[0].ToDouble(c) + args[1].ToDouble(c)), "add"))
+            .Export("sub", ctx => ctx.NewFunction((c, _, args) => c.NewDouble(args[0].ToDouble(c) - args[1].ToDouble(c)), "sub"))
             .Export("PI", ctx => ctx.NewBigInt64(3))
             .Build();
     }
@@ -27,7 +27,7 @@ rt.ModuleLoader = (c, name) =>
 
 var sw = System.Diagnostics.Stopwatch.StartNew();
 var timeObj = ctx.NewObject();
-timeObj.SetProperty(ctx, "now", ctx.NewFunction((c, _, _) => sw.Elapsed.TotalMilliseconds, "now"));
+timeObj.SetProperty(ctx, "now", ctx.NewFunction((c, _, _) => c.NewDouble(sw.Elapsed.TotalMilliseconds), "now"));
 ctx.GlobalObject.SetProperty(ctx, "Time", timeObj);
 
 unsafe
@@ -38,12 +38,12 @@ unsafe
 int capturedIncrement = 1;
 ctx.GlobalObject.SetProperty(ctx, "managedAdd", ctx.NewFunction((JSContext c, JSValue thisVal, ReadOnlySpan<JSValue> args) =>
 {
-    return JSValue.CreateInt32(args[0].ToInt32(c) + capturedIncrement + args[1].ToInt32(c) - 1);
+    return c.NewInt32(args[0].ToInt32(c) + capturedIncrement + args[1].ToInt32(c) - 1);
 }, "managedAdd"));
 
 static JSValue AddManaged(JSContext c, JSValue thisVal, ReadOnlySpan<JSValue> args)
 {
-    return JSValue.CreateInt32(args[0].ToInt32(c) + args[1].ToInt32(c));
+    return c.NewInt32(args[0].ToInt32(c) + args[1].ToInt32(c));
 }
 ctx.GlobalObject.SetProperty(ctx, "managedAddStatic", ctx.NewFunction(AddManaged, "managedAddStatic"));
 
@@ -91,7 +91,7 @@ ctx.GlobalObject.SetProperty(ctx, "console", ctx.NewObject());
 ctx.GlobalObject.GetProperty(ctx, "console").SetProperty(ctx, "log", ctx.NewFunction((c, _, args) =>
 {
     Console.WriteLine(args[0].ToString(c));
-    return JSValue.Undefined;
+    return c.Undefined;
 }, "log"));
 
 var modRes = ctx.Eval(moduleDemoScript, "main.js", JSEvalFlags.Module);

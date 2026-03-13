@@ -45,6 +45,12 @@ public sealed unsafe class JSContext : IDisposable
     public QuickJS.JSContext* NativeContext => _ctx;
     public JSRuntime Runtime => _rt;
 
+    public JSValue Null => JSValue.Null;
+    public JSValue Undefined => JSValue.Undefined;
+    public JSValue True => JSValue.True;
+    public JSValue False => JSValue.False;
+    public JSValue Uninitialized => JSValue.Uninitialized;
+
     /// <summary>
     /// The global object of this context.
     /// </summary>
@@ -149,6 +155,21 @@ public sealed unsafe class JSContext : IDisposable
     /// Creates a new Javascript Int32.
     /// </summary>
     public JSValue NewInt32(int value) => new(QuickJS.JS_NewInt32(_ctx, value));
+
+    /// <summary>
+    /// Creates a new Javascript Int64.
+    /// </summary>
+    public JSValue NewInt64(long value) => new(QuickJS.JS_NewInt64(_ctx, value));
+
+    /// <summary>
+    /// Creates a new Javascript Float64.
+    /// </summary>
+    public JSValue NewDouble(double value) => new(QuickJS.JS_NewFloat64(_ctx, value));
+
+    /// <summary>
+    /// Creates a new Javascript Boolean.
+    /// </summary>
+    public JSValue NewBoolean(bool value) => value ? JSValue.True : JSValue.False;
 
     /// <summary>
     /// Creates a new Javascript BigInt from a 64-bit signed integer.

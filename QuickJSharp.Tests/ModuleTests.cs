@@ -48,7 +48,7 @@ public class ModuleTests : IDisposable
                     .Export("log", c => c.NewFunction((cx, self, args) =>
                     {
                         called = true;
-                        return JSValue.Undefined;
+                        return cx.Undefined;
                     }, "log"))
                     .Build();
             }

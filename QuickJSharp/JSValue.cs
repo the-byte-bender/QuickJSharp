@@ -61,15 +61,7 @@ public readonly unsafe struct JSValue
     public QuickJS.JSClassID ClassID => QuickJS.JS_GetClassID(_value);
     public bool IsExtensible(JSContext ctx) => QuickJS.JS_IsExtensible(ctx.NativeContext, _value) != 0;
 
-    public static implicit operator JSValue(int value) => CreateInt32(value);
-    public static implicit operator JSValue(double value) => CreateDouble(value);
-    public static implicit operator JSValue(bool value) => CreateBoolean(value);
-
     private string DebuggerDisplay => Tag.ToString();
-
-    public static JSValue CreateInt32(int value) => new(QuickJS.JS_NewInt32(null, value));
-    public static JSValue CreateDouble(double value) => new(QuickJS.JS_NewFloat64(null, value));
-    public static JSValue CreateBoolean(bool value) => value ? True : False;
 
     /// <summary>
     /// Function signature for managed QuickJS callbacks.
@@ -156,6 +148,20 @@ public readonly unsafe struct JSValue
 
     public int ToInt32(JSContext ctx) => TryToInt32(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Int32");
 
+    public bool TryToUint32(JSContext ctx, out uint result)
+    {
+        uint res;
+        if (QuickJS.JS_ToUint32(ctx.NativeContext, &res, _value) == 0)
+        {
+            result = res;
+            return true;
+        }
+        result = 0;
+        return false;
+    }
+
+    public uint ToUint32(JSContext ctx) => TryToUint32(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Uint32");
+
     public bool TryToInt64(JSContext ctx, out long result)
     {
         long res;
@@ -169,6 +175,34 @@ public readonly unsafe struct JSValue
     }
 
     public long ToInt64(JSContext ctx) => TryToInt64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Int64");
+
+    public bool TryToBigInt64(JSContext ctx, out long result)
+    {
+        long res;
+        if (QuickJS.JS_ToBigInt64(ctx.NativeContext, &res, _value) == 0)
+        {
+            result = res;
+            return true;
+        }
+        result = 0;
+        return false;
+    }
+
+    public long ToBigInt64(JSContext ctx) => TryToBigInt64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to BigInt64");
+
+    public bool TryToBigUint64(JSContext ctx, out ulong result)
+    {
+        ulong res;
+        if (QuickJS.JS_ToBigUint64(ctx.NativeContext, &res, _value) == 0)
+        {
+            result = res;
+            return true;
+        }
+        result = 0;
+        return false;
+    }
+
+    public ulong ToBigUint64(JSContext ctx) => TryToBigUint64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to BigUint64");
 
     public bool TryToDouble(JSContext ctx, out double result)
     {
