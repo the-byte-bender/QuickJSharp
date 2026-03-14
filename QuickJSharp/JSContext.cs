@@ -719,8 +719,15 @@ public sealed unsafe class JSContext : IDisposable
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static void ManagedFunctionFinalizer(void* opaque)
     {
-        GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
-        handle.Free();
+        try
+        {
+            GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
+            handle.Free();
+        }
+        catch
+        {
+            // Unmanaged callers MUST NOT leak exceptions.
+        }
     }
 
     ~JSContext() => Dispose();

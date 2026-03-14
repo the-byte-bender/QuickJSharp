@@ -407,7 +407,14 @@ public sealed unsafe class JSRuntime : IDisposable
 
         if (classId < (uint)runtime._classMetadata.Length)
         {
-            runtime._classMetadata[classId].Finalizer?.Invoke(runtime, new JSValue(val));
+            try
+            {
+                runtime._classMetadata[classId].Finalizer?.Invoke(runtime, new JSValue(val));
+            }
+            catch
+            {
+                // Native finalizers MUST NOT throw exceptions.
+            }
         }
     }
 
@@ -419,7 +426,14 @@ public sealed unsafe class JSRuntime : IDisposable
 
         if (classId < (uint)runtime._classMetadata.Length)
         {
-            runtime._classMetadata[classId].GCMark?.Invoke(runtime, new JSValue(val), (IntPtr)mark_func);
+            try
+            {
+                runtime._classMetadata[classId].GCMark?.Invoke(runtime, new JSValue(val), (IntPtr)mark_func);
+            }
+            catch
+            {
+                // Native GC mark function MUST NOT throw exceptions.
+            }
         }
     }
 
@@ -432,11 +446,19 @@ public sealed unsafe class JSRuntime : IDisposable
 
         if (classId < (uint)runtime._classMetadata.Length)
         {
-            var call = runtime._classMetadata[classId].Call;
-            if (call is not null)
+            try
             {
-                var wrappedArgs = new ReadOnlySpan<JSValue>(argv, argc);
-                return call(jsContext, new JSValue(func_obj), new JSValue(this_val), wrappedArgs, (JSCallFlags)flags).NativeValue;
+                var call = runtime._classMetadata[classId].Call;
+                if (call is not null)
+                {
+                    var wrappedArgs = new ReadOnlySpan<JSValue>(argv, argc);
+                    return call(jsContext, new JSValue(func_obj), new JSValue(this_val), wrappedArgs, (JSCallFlags)flags).NativeValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                jsContext.ThrowError(ex.Message);
+                return QuickJS.JS_EXCEPTION;
             }
         }
         return QuickJS.JS_EXCEPTION;
