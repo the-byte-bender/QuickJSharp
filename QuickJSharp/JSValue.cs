@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using QuickJSharp.Native;
 
@@ -22,17 +21,9 @@ public readonly unsafe struct JSValue
     public static readonly JSValue Uninitialized = new(QuickJS.JS_UNINITIALIZED);
 
     /// <summary>
-    /// Wraps a native JSValue and takes ownership by incrementing the reference count.
-    /// </summary>
-    public JSValue(JSContext ctx, QuickJS.JSValue value)
-    {
-        _value = QuickJS.JS_DupValue(ctx.NativeContext, value);
-    }
-
-    /// <summary>
     /// Creates a wrapper for a native JSValue.
     /// </summary>
-    public JSValue(QuickJS.JSValue value)
+    internal JSValue(QuickJS.JSValue value)
     {
         _value = value;
     }
@@ -58,77 +49,14 @@ public readonly unsafe struct JSValue
     public bool IsException => Tag is QuickJS.JSTag.EXCEPTION;
     public bool IsUninitialized => Tag is QuickJS.JSTag.UNINITIALIZED;
 
-    public QuickJS.JSClassID ClassID => QuickJS.JS_GetClassID(_value);
+    public JSClassID ClassID => new(QuickJS.JS_GetClassID(_value));
     public bool IsExtensible(JSContext ctx) => QuickJS.JS_IsExtensible(ctx.NativeContext, _value) != 0;
 
     private string DebuggerDisplay => Tag.ToString();
 
-    /// <summary>
-    /// Function signature for managed QuickJS callbacks.
-    /// </summary>
-    /// <param name="ctx">The execution context.</param>
-    /// <param name="thisVal">The 'this' value (borrowed).</param>
-    /// <param name="args">A span of arguments (borrowed).</param>
-    /// <returns>A <see cref="JSValue"/> that the engine will take ownership of.</returns>
-    public delegate JSValue JSFunction(JSContext ctx, JSValue thisVal, ReadOnlySpan<JSValue> args);
-
-    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    internal static QuickJS.JSValue ManagedFunctionBridge(QuickJS.JSContext* ctx, QuickJS.JSValue this_val, int argc, QuickJS.JSValue* argv, int magic, void* opaque)
-    {
-        GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
-        JSFunction func = (JSFunction)handle.Target!;
-
-        JSContext jsCtx = JSContext.FromNative(ctx);
-        JSValue thisWrap = new(this_val);
-        ReadOnlySpan<JSValue> wrappedArgs = new(argv, argc);
-
-        try
-        {
-            JSValue result = func(jsCtx, thisWrap, wrappedArgs);
-            return result.NativeValue;
-        }
-        catch (Exception ex)
-        {
-            return ThrowException(ctx, ex);
-        }
-    }
-
-    private static QuickJS.JSValue ThrowException(QuickJS.JSContext* ctx, Exception ex)
-    {
-        string msg = ex.Message;
-        int maxLen = JSUtils.GetMaxByteCount(msg.Length);
-        if (maxLen <= 512)
-        {
-            byte* pMsg = stackalloc byte[512];
-            JSUtils.GetUtf8(msg, pMsg, 512);
-            return QuickJS.JS_ThrowTypeError(ctx, pMsg);
-        }
-
-        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
-        try
-        {
-            fixed (byte* pMsg = array)
-            {
-                JSUtils.GetUtf8(msg, pMsg, maxLen);
-                return QuickJS.JS_ThrowTypeError(ctx, pMsg);
-            }
-        }
-        finally
-        {
-            System.Buffers.ArrayPool<byte>.Shared.Return(array);
-        }
-    }
-
-    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    internal static void ManagedFunctionFinalizer(void* opaque)
-    {
-        GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
-        handle.Free();
-    }
-
     public IntPtr Opaque
     {
-        get => IsObject ? (IntPtr)QuickJS.JS_GetOpaque(_value, ClassID) : IntPtr.Zero;
+        get => IsObject ? (IntPtr)QuickJS.JS_GetOpaque(_value, ClassID.NativeValue) : IntPtr.Zero;
         set { if (IsObject) QuickJS.JS_SetOpaque(_value, (void*)value); }
     }
 
@@ -230,10 +158,10 @@ public readonly unsafe struct JSValue
             QuickJS.JSValue exVal = QuickJS.JS_GetException(ctx.NativeContext);
             byte* exPtr = QuickJS.JS_ToCString(ctx.NativeContext, exVal);
             try { return exPtr == null ? "Exception (could not stringify)" : Marshal.PtrToStringUTF8((IntPtr)exPtr); }
-            finally 
-            { 
+            finally
+            {
                 if (exPtr != null) QuickJS.JS_FreeCString(ctx.NativeContext, exPtr);
-                QuickJS.JS_FreeValue(ctx.NativeContext, exVal); 
+                QuickJS.JS_FreeValue(ctx.NativeContext, exVal);
             }
         }
 
@@ -330,6 +258,7 @@ public readonly unsafe struct JSValue
     }
 
     public JSValue Call(JSContext ctx, ReadOnlySpan<JSValue> args) => Call(ctx, Null, args);
+
     public JSValue Call(JSContext ctx, JSValue thisVal, ReadOnlySpan<JSValue> args)
     {
         fixed (JSValue* pArgs = args)
@@ -337,6 +266,22 @@ public readonly unsafe struct JSValue
             return new JSValue(QuickJS.JS_Call(ctx.NativeContext, _value, thisVal._value, args.Length, (QuickJS.JSValue*)pArgs));
         }
     }
+
+    /// <summary>
+    /// Sets or unsets the constructor bit of an object.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="isConstructor">Whether the object should be considered a constructor.</param>
+    /// <returns><see langword="true"/> if the bit was successfully updated, <see langword="false"/> otherwise.</returns>
+    /// <remarks>
+    /// This method manages the internal <c>is_constructor</c> metadata of a Javascript object, which 
+    /// determines if the object can be validly invoked using the <c>new</c> keyword.
+    /// <para>
+    /// Unlike js constructors, when a native (Dotnet) function is invoked as a constructor (via <c>new</c>, the engine does not pre-allocate a <c>this</c> object for the callback. The <c>thisVal</c> parameter passed to the callback will be the <c>new_target</c> (the constructor function itself or a derived constructor in an inheritance chain).
+    ///The callback is responsible for manually allocating the new instance (See <see cref="JSContext.NewObjectProtoClass"/> with the prototype from <c>new_target</c>) and returning it.
+    /// </para>
+    /// </remarks>
+    public bool SetConstructorBit(JSContext ctx, bool isConstructor) => QuickJS.JS_SetConstructorBit(ctx.NativeContext, _value, isConstructor);
 
     public JSValue Clone(JSContext ctx)
     {

@@ -3,6 +3,23 @@ using QuickJSharp.Native;
 namespace QuickJSharp;
 
 /// <summary>
+/// Flags passed to a class 'call' method.
+/// </summary>
+[Flags]
+public enum JSCallFlags
+{
+    /// <summary>
+    /// None.
+    /// </summary>
+    None = 0,
+
+    /// <summary>
+    /// The function is called as a constructor (via 'new').
+    /// </summary>
+    Constructor = QuickJS.JS_CALL_FLAG_CONSTRUCTOR,
+}
+
+/// <summary>
 /// Flags for evaluating Javascript code.
 /// </summary>
 [Flags]

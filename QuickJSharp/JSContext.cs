@@ -9,9 +9,21 @@ namespace QuickJSharp;
 /// </summary>
 public sealed unsafe class JSContext : IDisposable
 {
+    /// <summary>
+    /// Function signature for a standard Javascript function.
+    /// </summary>
+    /// <param name="ctx">The execution context.</param>
+    /// <param name="thisVal">The 'this' value (borrowed).</param>
+    /// <param name="args">A span of arguments (borrowed).</param>
+    /// <returns>A <see cref="JSValue"/> that the engine will take ownership of.</returns>
+    public delegate JSValue JSFunction(JSContext ctx, JSValue thisVal, ReadOnlySpan<JSValue> args);
+
+    public delegate int JSModuleInitDelegate(JSContext ctx, JSModule m);
+
     private QuickJS.JSContext* _ctx;
     private readonly JSRuntime _rt;
     private GCHandle _handle;
+    private Dictionary<IntPtr, JSModuleInitDelegate>? _moduleInits;
 
     internal JSContext(JSRuntime rt, QuickJS.JSContext* ctx)
     {
@@ -127,6 +139,28 @@ public sealed unsafe class JSContext : IDisposable
     }
 
     /// <summary>
+    /// Retrieves the prototype associated with a specific class ID for this context.
+    /// </summary>
+    /// <param name="classId">The class ID to query.</param>
+    /// <returns>The prototype <see cref="JSValue"/>.</returns>
+    public JSValue GetClassProto(JSClassID classId) => new JSValue(QuickJS.JS_GetClassProto(_ctx, classId.NativeValue));
+
+    /// <summary>
+    /// Sets the default prototype associated with a specific class ID for this context.
+    /// </summary>
+    /// <param name="classId">The class ID to set the prototype for.</param>
+    /// <param name="proto">The prototype object.</param>
+    /// <remarks>
+    /// This prototype is used by <see cref="NewObjectClass"/> to initialize the internal 
+    /// [[Prototype]] of new instances. It is optional if instances are created exclusively 
+    /// using <see cref="NewObjectProtoClass"/> with an explicit prototype.
+    /// </remarks>
+    public void SetClassProto(JSClassID classId, JSValue proto)
+    {
+        QuickJS.JS_SetClassProto(_ctx, classId.NativeValue, proto.NativeValue);
+    }
+
+    /// <summary>
     /// Creates a new Javascript string.
     /// </summary>
     public JSValue NewString(string value)
@@ -187,6 +221,28 @@ public sealed unsafe class JSContext : IDisposable
     public JSValue NewObject() => new(QuickJS.JS_NewObject(_ctx));
 
     /// <summary>
+    /// Creates a new object instance of a specific class.
+    /// </summary>
+    /// <param name="classId">The class ID for the object.</param>
+    /// <returns>A new <see cref="JSValue"/> object.</returns>
+    /// <remarks>
+    /// The object's internal [[Prototype]] is set to the value previously provided to <see cref="SetClassProto"/>. 
+    /// If no prototype has been set for this <paramref name="classId"/>, the new object will have a <c>null</c> prototype.
+    /// </remarks>
+    public JSValue NewObjectClass(JSClassID classId) => new JSValue(QuickJS.JS_NewObjectClass(_ctx, classId.NativeValue));
+
+    /// <summary>
+    /// Creates a new object instance of a specific class with an explicit prototype.
+    /// </summary>
+    /// <param name="proto">The prototype object to use for the new instance.</param>
+    /// <param name="classId">The class ID for the object.</param>
+    /// <returns>A new <see cref="JSValue"/> object.</returns>
+    /// <remarks>
+    /// This method allows specifying a prototype directly, bypassing the default registration managed by <see cref="SetClassProto"/> if any.
+    /// </remarks>
+    public JSValue NewObjectProtoClass(JSValue proto, JSClassID classId) => new JSValue(QuickJS.JS_NewObjectProtoClass(_ctx, proto.NativeValue, classId.NativeValue));
+
+    /// <summary>
     /// Creates a new empty Javascript array.
     /// </summary>
     public JSValue NewArray() => new(QuickJS.JS_NewArray(_ctx));
@@ -200,6 +256,111 @@ public sealed unsafe class JSContext : IDisposable
     /// Creates a new Javascript Date object.
     /// </summary>
     public JSValue NewDate(double epochMs) => new(QuickJS.JS_NewDate(_ctx, epochMs));
+
+    /// <summary>
+    /// Creates a JS function from a delegate.
+    /// </summary>
+    public JSValue NewFunction(JSFunction func, string name, int length = 0)
+    {
+        GCHandle handle = GCHandle.Alloc(func);
+        void* pOpaque = (void*)GCHandle.ToIntPtr(handle);
+        int maxLen = JSUtils.GetMaxByteCount(name.Length);
+        if (maxLen <= 512)
+        {
+            byte* pName = stackalloc byte[512];
+            JSUtils.GetUtf8(name, pName, 512);
+            return new JSValue(QuickJS.JS_NewCClosure(_ctx, &ManagedFunctionBridge, pName, &ManagedFunctionFinalizer, length, 0, pOpaque));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pName = array)
+            {
+                JSUtils.GetUtf8(name, pName, maxLen);
+                return new JSValue(QuickJS.JS_NewCClosure(_ctx, &ManagedFunctionBridge, pName, &ManagedFunctionFinalizer, length, 0, pOpaque));
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
+    }
+
+    /// <summary>
+    /// Creates a JS function from a raw unmanaged C function pointer.
+    /// </summary>
+    public JSValue NewFunctionRaw(delegate* unmanaged[Cdecl]<QuickJS.JSContext*, QuickJS.JSValue, int, QuickJS.JSValue*, QuickJS.JSValue> func, string name, int length = 0)
+    {
+        int maxLen = JSUtils.GetMaxByteCount(name.Length);
+        if (maxLen <= 512)
+        {
+            byte* pName = stackalloc byte[512];
+            JSUtils.GetUtf8(name, pName, 512);
+            return new JSValue(QuickJS.JS_NewCFunction(_ctx, func, pName, length));
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pName = array)
+            {
+                JSUtils.GetUtf8(name, pName, maxLen);
+                return new JSValue(QuickJS.JS_NewCFunction(_ctx, func, pName, length));
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
+    }
+
+    /// <summary>
+    /// Creates a new native module builder for this context.
+    /// </summary>
+    /// <param name="name">The name of the module.</param>
+    /// <returns>A module builder instance.</returns>
+    public JSModuleBuilder CreateModule(string name) => new(this, name);
+
+    /// <summary>
+    /// Creates a new C module.
+    /// </summary>
+    /// <param name="name">The name of the module.</param>
+    /// <param name="init">The module initialization callback.</param>
+    /// <returns>The module, or <c>null</c> if it could not be created.</returns>
+    public JSModule? NewModule(string name, JSModuleInitDelegate init)
+    {
+        if (name is null) throw new ArgumentNullException(nameof(name));
+        if (init is null) throw new ArgumentNullException(nameof(init));
+
+        int maxLen = JSUtils.GetMaxByteCount(name.Length);
+        QuickJS.JSModuleDef* m;
+        if (maxLen <= 512)
+        {
+            byte* pName = stackalloc byte[512];
+            JSUtils.GetUtf8(name, pName, 512);
+            m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
+        }
+        else
+        {
+            byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+            try
+            {
+                fixed (byte* pName = array)
+                {
+                    JSUtils.GetUtf8(name, pName, maxLen);
+                    m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
+                }
+            }
+            finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        }
+
+        if (m == null) return null;
+
+        // Map the ModuleDef pointer to its initialization delegate for robust callback routing
+        _moduleInits ??= [];
+        _moduleInits[(IntPtr)m] = init;
+
+        return new JSModule(this, m);
+    }
 
     /// <summary>
     /// Adds standard Javascript base objects (Object, Function, Number, String, Math, etc.) to this context.
@@ -269,142 +430,6 @@ public sealed unsafe class JSContext : IDisposable
     /// Adds the DOMException error type.
     /// </summary>
     public void AddIntrinsicDOMException() => QuickJS.JS_AddIntrinsicDOMException(_ctx);
-
-    /// <summary>
-    /// Creates a new native module builder for this context.
-    /// </summary>
-    /// <param name="name">The name of the module.</param>
-    /// <returns>A module builder instance.</returns>
-    public JSModuleBuilder CreateModule(string name) => new(this, name);
-
-    /// <summary>
-    /// Creates a new C module.
-    /// </summary>
-    /// <param name="name">The name of the module.</param>
-    /// <param name="init">The module initialization callback.</param>
-    /// <returns>The module, or <c>null</c> if it could not be created.</returns>
-    public JSModule? NewModule(string name, JSModuleInitDelegate init)
-    {
-        if (name is null) throw new ArgumentNullException(nameof(name));
-        if (init is null) throw new ArgumentNullException(nameof(init));
-
-        int maxLen = JSUtils.GetMaxByteCount(name.Length);
-        QuickJS.JSModuleDef* m;
-        if (maxLen <= 512)
-        {
-            byte* pName = stackalloc byte[512];
-            JSUtils.GetUtf8(name, pName, 512);
-            m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
-        }
-        else
-        {
-            byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
-            try
-            {
-                fixed (byte* pName = array)
-                {
-                    JSUtils.GetUtf8(name, pName, maxLen);
-                    m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
-                }
-            }
-            finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
-        }
-
-        if (m == null) return null;
-
-        // Map the ModuleDef pointer to its initialization delegate for robust callback routing
-        _moduleInits ??= [];
-        _moduleInits[(IntPtr)m] = init;
-
-        return new JSModule(this, m);
-    }
-
-    private Dictionary<IntPtr, JSModuleInitDelegate>? _moduleInits;
-
-    public delegate int JSModuleInitDelegate(JSContext ctx, JSModule m);
-
-    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static int NativeModuleInit(QuickJS.JSContext* ctx, QuickJS.JSModuleDef* m)
-    {
-        var jsCtx = JSContext.FromNative(ctx);
-        IntPtr key = (IntPtr)m;
-
-        try
-        {
-            // Robust routing: Ensure we call the correct initialization delegate for this specific module
-            if (jsCtx._moduleInits != null && jsCtx._moduleInits.TryGetValue(key, out var init))
-            {
-                // We don't remove it here because QuickJS might call init multiple times in some versions 
-                // or if evaluation is triggered repeatedly (though usually once per realm).
-                return init(jsCtx, new JSModule(jsCtx, m));
-            }
-        }
-        catch (Exception ex)
-        {
-            // Set a JS exception so the engine knows why it failed
-            jsCtx.ThrowError(ex.Message);
-            return -1;
-        }
-
-        return -1;
-    }
-
-
-    /// <summary>
-    /// Creates a JS function from a delegate.
-    /// </summary>
-    public JSValue NewFunction(JSValue.JSFunction func, string name, int length = 0)
-    {
-        GCHandle handle = GCHandle.Alloc(func);
-        void* pOpaque = (void*)GCHandle.ToIntPtr(handle);
-        int maxLen = JSUtils.GetMaxByteCount(name.Length);
-        if (maxLen <= 512)
-        {
-            byte* pName = stackalloc byte[512];
-            JSUtils.GetUtf8(name, pName, 512);
-            return new JSValue(QuickJS.JS_NewCClosure(_ctx, &JSValue.ManagedFunctionBridge, pName, &JSValue.ManagedFunctionFinalizer, length, 0, pOpaque));
-        }
-        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
-        try
-        {
-            fixed (byte* pName = array)
-            {
-                JSUtils.GetUtf8(name, pName, maxLen);
-                return new JSValue(QuickJS.JS_NewCClosure(_ctx, &JSValue.ManagedFunctionBridge, pName, &JSValue.ManagedFunctionFinalizer, length, 0, pOpaque));
-            }
-        }
-        finally
-        {
-            System.Buffers.ArrayPool<byte>.Shared.Return(array);
-        }
-    }
-
-    /// <summary>
-    /// Creates a JS function from a raw unmanaged C function pointer.
-    /// </summary>
-    public JSValue NewFunctionRaw(delegate* unmanaged[Cdecl]<QuickJS.JSContext*, QuickJS.JSValue, int, QuickJS.JSValue*, QuickJS.JSValue> func, string name, int length = 0)
-    {
-        int maxLen = JSUtils.GetMaxByteCount(name.Length);
-        if (maxLen <= 512)
-        {
-            byte* pName = stackalloc byte[512];
-            JSUtils.GetUtf8(name, pName, 512);
-            return new JSValue(QuickJS.JS_NewCFunction(_ctx, func, pName, length));
-        }
-        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
-        try
-        {
-            fixed (byte* pName = array)
-            {
-                JSUtils.GetUtf8(name, pName, maxLen);
-                return new JSValue(QuickJS.JS_NewCFunction(_ctx, func, pName, length));
-            }
-        }
-        finally
-        {
-            System.Buffers.ArrayPool<byte>.Shared.Return(array);
-        }
-    }
 
     /// <summary>
     /// Evaluates a script.
@@ -515,6 +540,7 @@ public sealed unsafe class JSContext : IDisposable
             return res;
         }
     }
+
     public bool TryWriteObject(JSValue value, Span<byte> buffer, out int written, JSWriteObjectFlags flags = JSWriteObjectFlags.Bytecode)
     {
         nuint size;
@@ -616,6 +642,85 @@ public sealed unsafe class JSContext : IDisposable
             _handle.Free();
         }
         GC.SuppressFinalize(this);
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static QuickJS.JSValue ManagedFunctionBridge(QuickJS.JSContext* ctx, QuickJS.JSValue this_val, int argc, QuickJS.JSValue* argv, int magic, void* opaque)
+    {
+        GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
+        JSFunction func = (JSFunction)handle.Target!;
+
+        JSContext jsCtx = FromNative(ctx);
+        JSValue thisWrap = new(this_val);
+        ReadOnlySpan<JSValue> wrappedArgs = new(argv, argc);
+
+        try
+        {
+            JSValue result = func(jsCtx, thisWrap, wrappedArgs);
+            return result.NativeValue;
+        }
+        catch (Exception ex)
+        {
+            return ThrowException(ctx, ex);
+        }
+    }
+
+    private static QuickJS.JSValue ThrowException(QuickJS.JSContext* ctx, Exception ex)
+    {
+        string msg = ex.Message;
+        int maxLen = JSUtils.GetMaxByteCount(msg.Length);
+        if (maxLen <= 512)
+        {
+            byte* pMsg = stackalloc byte[512];
+            JSUtils.GetUtf8(msg, pMsg, 512);
+            return QuickJS.JS_ThrowTypeError(ctx, pMsg);
+        }
+
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pMsg = array)
+            {
+                JSUtils.GetUtf8(msg, pMsg, maxLen);
+                return QuickJS.JS_ThrowTypeError(ctx, pMsg);
+            }
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
+    }
+
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static int NativeModuleInit(QuickJS.JSContext* ctx, QuickJS.JSModuleDef* m)
+    {
+        var jsCtx = JSContext.FromNative(ctx);
+        IntPtr key = (IntPtr)m;
+
+        try
+        {
+            // Robust routing: Ensure we call the correct initialization delegate for this specific module
+            if (jsCtx._moduleInits != null && jsCtx._moduleInits.TryGetValue(key, out var init))
+            {
+                return init(jsCtx, new JSModule(jsCtx, m));
+            }
+        }
+        catch (Exception ex)
+        {
+            // Set a JS exception so the engine knows why it failed
+            jsCtx.ThrowError(ex.Message);
+            return -1;
+        }
+
+        return -1;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void ManagedFunctionFinalizer(void* opaque)
+    {
+        GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
+        handle.Free();
     }
 
     ~JSContext() => Dispose();
