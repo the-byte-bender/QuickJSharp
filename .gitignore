@@ -30,6 +30,7 @@ artifacts/
 
 # Avoid conflicts if people use:
 .github/copilot-instructions.md
+.github/instructions
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
