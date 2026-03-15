@@ -49,7 +49,6 @@ public enum JSEvalFlags
 
     /// <summary>
     /// Don't include the stack frames before this eval in the Error() backtraces.
-    /// Useful for hiding host-side wrapper frames from Javascript stack traces.
     /// </summary>
     BacktraceBarrier = QuickJS.JS_EVAL_FLAG_BACKTRACE_BARRIER,
 

@@ -20,9 +20,6 @@ public readonly unsafe struct JSValue
     public static readonly JSValue Exception = new(QuickJS.JS_EXCEPTION);
     public static readonly JSValue Uninitialized = new(QuickJS.JS_UNINITIALIZED);
 
-    /// <summary>
-    /// Creates a wrapper for a native JSValue.
-    /// </summary>
     internal JSValue(QuickJS.JSValue value)
     {
         _value = value;

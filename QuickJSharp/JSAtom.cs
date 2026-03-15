@@ -78,13 +78,6 @@ public readonly unsafe record struct JSAtom(QuickJS.JSAtom NativeValue)
     /// </Remarks>
     public JSAtom Duplicate(JSRuntime runtime) => new(QuickJS.JS_DupAtomRT(runtime.NativeRuntime, NativeValue));
 
-    /// <summary>
-    /// Implicitly converts a native atom to a high-level atom wrapper.
-    /// </summary>
     public static implicit operator JSAtom(QuickJS.JSAtom native) => new(native);
-
-    /// <summary>
-    /// Implicitly converts a high-level atom wrapper to its native representation.
-    /// </summary>
     public static implicit operator QuickJS.JSAtom(JSAtom atom) => atom.NativeValue;
 }

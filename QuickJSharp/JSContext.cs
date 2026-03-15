@@ -5,7 +5,7 @@ using QuickJSharp.Native;
 namespace QuickJSharp;
 
 /// <summary>
-/// A wrapper around a QuickJS context.
+/// A QuickJS context.
 /// </summary>
 public sealed unsafe class JSContext : IDisposable
 {
@@ -32,7 +32,6 @@ public sealed unsafe class JSContext : IDisposable
 
         if (_ctx != null)
         {
-            // Use a strong handle so the C# wrapper stays alive as long as the native context needs it
             _handle = GCHandle.Alloc(this);
             QuickJS.JS_SetContextOpaque(_ctx, (void*)GCHandle.ToIntPtr(_handle));
         }
