@@ -34,7 +34,7 @@ public readonly unsafe struct JSModule
     /// <returns>0 on success, &lt; 0 on failure.</returns>
     public int AddExport(string name)
     {
-        if (name is null) throw new ArgumentNullException(nameof(name));
+        ArgumentNullException.ThrowIfNull(name);
 
         int maxLen = JSUtils.GetMaxByteCount(name.Length);
         if (maxLen <= 512)
@@ -71,7 +71,7 @@ public readonly unsafe struct JSModule
     /// <returns>0 on success, &lt; 0 on failure.</returns>
     public int SetExport(string name, JSValue val)
     {
-        if (name is null) throw new ArgumentNullException(nameof(name));
+        ArgumentNullException.ThrowIfNull(name);
 
         int maxLen = JSUtils.GetMaxByteCount(name.Length);
         if (maxLen <= 512)

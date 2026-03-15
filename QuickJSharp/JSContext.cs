@@ -394,8 +394,8 @@ public sealed unsafe class JSContext : IDisposable
     /// <returns>The module, or <c>null</c> if it could not be created.</returns>
     public JSModule? NewModule(string name, JSModuleInitDelegate init)
     {
-        if (name is null) throw new ArgumentNullException(nameof(name));
-        if (init is null) throw new ArgumentNullException(nameof(init));
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(init);
 
         int maxLen = JSUtils.GetMaxByteCount(name.Length);
         QuickJS.JSModuleDef* m;
