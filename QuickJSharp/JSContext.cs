@@ -572,7 +572,7 @@ public sealed unsafe class JSContext : IDisposable
             var ex = GetException();
             if (ex.IsException) return null; // Already an exception
             if (ex.IsNull || ex.IsUndefined) return null;
-            throw new Exception("WriteObject failed: " + ex.ToString(this));
+            throw new JSException("WriteObject failed: " + ex.ToString(this));
         }
 
         try
@@ -601,7 +601,7 @@ public sealed unsafe class JSContext : IDisposable
             if (res.IsException)
             {
                 var ex = GetException();
-                throw new Exception("ReadObject failed: " + ex.ToString(this));
+                throw new JSException("ReadObject failed: " + ex.ToString(this));
             }
             return res;
         }

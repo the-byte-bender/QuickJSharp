@@ -288,6 +288,42 @@ public enum JSPropertyFlags
     /// Throw an exception if the operation fails in strict mode.
     /// </summary>
     ThrowStrict = QuickJS.JS_PROP_THROW_STRICT,
+
+    /// <summary>
+    /// Mask to indicate that the 'Configurable' attribute is provided in the descriptor.
+    /// Without this flag, <c>JS_DefineProperty</c> will ignore the <see cref="Configurable"/> bit.
+    /// </summary>
+    HasConfigurable = QuickJS.JS_PROP_HAS_CONFIGURABLE,
+
+    /// <summary>
+    /// Mask to indicate that the 'Writable' attribute is provided in the descriptor.
+    /// Without this flag, <c>JS_DefineProperty</c> will ignore the <see cref="Writable"/> bit.
+    /// </summary>
+    HasWritable = QuickJS.JS_PROP_HAS_WRITABLE,
+
+    /// <summary>
+    /// Mask to indicate that the 'Enumerable' attribute is provided in the descriptor.
+    /// Without this flag, <c>JS_DefineProperty</c> will ignore the <see cref="Enumerable"/> bit.
+    /// </summary>
+    HasEnumerable = QuickJS.JS_PROP_HAS_ENUMERABLE,
+
+    /// <summary>
+    /// Mask to indicate that a getter function is provided in the descriptor.
+    /// Required when setting accessor properties via <c>JS_DefineProperty</c>.
+    /// </summary>
+    HasGet = QuickJS.JS_PROP_HAS_GET,
+
+    /// <summary>
+    /// Mask to indicate that a setter function is provided in the descriptor.
+    /// Required when setting accessor properties via <c>JS_DefineProperty</c>.
+    /// </summary>
+    HasSet = QuickJS.JS_PROP_HAS_SET,
+
+    /// <summary>
+    /// Mask to indicate that a value is provided in the descriptor.
+    /// Required when defining data properties via <c>JS_DefineProperty</c>.
+    /// </summary>
+    HasValue = QuickJS.JS_PROP_HAS_VALUE,
 }
 
 /// <summary>

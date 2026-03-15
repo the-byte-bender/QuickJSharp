@@ -3,6 +3,7 @@
 // Run in release (dotnet run -c Release Demo.cs)
 // Or publish as AOT and run the resulting executable (dotnet publish -c Release Demo.cs) for more realistic and stable runs.
 // This is a quickly thrown together demo of various QuickJSharp features and performance characteristics, not meant to be a formal benchmark or test suite. The code is intentionally straightforward and unoptimized to show typical usage patterns and relative overheads of different interop approaches.
+// Also we're using primitives here for simplicity. In real sinarios you'd be using strings and objects, which of course add overhead, especially for string marshalling, though we try to minimize that as much as possible but it's still something to be aware of in your usage and avoid where possible.
 
 using System.Runtime.InteropServices;
 using System.Text;
@@ -47,6 +48,16 @@ static JSValue AddManaged(JSContext c, JSValue thisVal, ReadOnlySpan<JSValue> ar
 }
 ctx.GlobalObject.SetProperty(ctx, "managedAddStatic", ctx.NewFunction(AddManaged, "managedAddStatic"));
 
+var jsObj = ctx.Eval("({ get val() { return 42; } })");
+ctx.GlobalObject.SetProperty(ctx, "jsObj", jsObj);
+
+var nativeObj = ctx.NewObject();
+var nativeKey = ctx.NewAtom("val");
+var nativeGetter = ctx.NewFunction((c, _, _) => c.NewInt32(42), "getVal", 0);
+nativeObj.DefineProperty(ctx, nativeKey, nativeGetter, JSValue.Undefined, JSPropertyFlags.Enumerable | JSPropertyFlags.Configurable);
+ctx.GlobalObject.SetProperty(ctx, "nativeObj", nativeObj);
+nativeKey.Free(ctx);
+
 const int Iterations = 1_000_000;
 
 string benchScript = $@"
@@ -69,12 +80,29 @@ string benchScript = $@"
             end = now();
             const managedStaticTime = end - start;
 
+            start = now();
+            for(let i=0; i < iterations; i++) {{ let x = jsObj.val; }}
+            end = now();
+            const jsGetterTime = end - start;
+
+            start = now();
+            for(let i=0; i < iterations; i++) {{ let x = nativeObj.val; }}
+            end = now();
+            const nativeGetterTime = end - start;
+
             return 'Iterations: ' + iterations.toLocaleString() + '\n' +
 '-----------------------------------------\n' +
-'RAW (Native Function*):  ' + rawTime + 'ms (' + (iterations / (rawTime || 1) * 1000).toFixed(0) + ' calls / sec)\n' +
-'MANAGED (Lambda):         ' + managedTime + 'ms (' + (iterations / (managedTime || 1) * 1000).toFixed(0) + ' calls / sec)\n' +
-'MANAGED (Static Method): ' + managedStaticTime + 'ms (' + (iterations / (managedStaticTime || 1) * 1000).toFixed(0) + ' calls / sec)\n' +
-'Overhead (Lambda):       ' + (managedTime - rawTime).toFixed(2) + 'ms total extra cost';
+'FUNCTION CALLS:\n' +
+'RAW (Native Function*):  ' + rawTime.toFixed(2) + 'ms (' + (iterations / (rawTime || 1) * 1000).toFixed(0) + ' calls / sec)\n' +
+'MANAGED (Lambda):         ' + managedTime.toFixed(2) + 'ms (' + (iterations / (managedTime || 1) * 1000).toFixed(0) + ' calls / sec)\n' +
+'MANAGED (Static Method): ' + managedStaticTime.toFixed(2) + 'ms (' + (iterations / (managedStaticTime || 1) * 1000).toFixed(0) + ' calls / sec)\n' +
+'Overhead (Lambda):       ' + (managedTime - rawTime).toFixed(2) + 'ms total extra cost\n' +
+'-----------------------------------------\n' +
+'PROPERTY GETTERS:\n' +
+'JS GETTER (get val()):    ' + jsGetterTime.toFixed(2) + 'ms (' + (iterations / (jsGetterTime || 1) * 1000).toFixed(0) + ' gets / sec)\n' +
+'NATIVE GETTER (C# callback): ' + nativeGetterTime.toFixed(2) + 'ms (' + (iterations / (nativeGetterTime || 1) * 1000).toFixed(0) + ' gets / sec)\n' +
+'-----------------------------------------\n' +
+'Native vs JS overhead:   ' + (nativeGetterTime / (jsGetterTime || 1)).toFixed(2) + 'x';
         }})();";
 
 JSValue resultWrap = ctx.Eval(benchScript);

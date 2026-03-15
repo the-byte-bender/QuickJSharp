@@ -56,7 +56,12 @@ public readonly unsafe struct JSValue
 
     public IntPtr Opaque
     {
-        get => IsObject ? (IntPtr)QuickJS.JS_GetOpaque(_value, ClassID.NativeValue) : IntPtr.Zero;
+        get
+        {
+            if (!IsObject) return IntPtr.Zero;
+            QuickJS.JSClassID classId;
+            return (IntPtr)QuickJS.JS_GetAnyOpaque(_value, &classId);
+        }
         set { if (IsObject) QuickJS.JS_SetOpaque(_value, (void*)value); }
     }
 
@@ -246,7 +251,7 @@ public readonly unsafe struct JSValue
             byte* pName = stackalloc byte[512];
             JSUtils.GetUtf8(name, pName, 512);
             if (QuickJS.JS_SetPropertyStr(ctx.NativeContext, _value, pName, value._value) < 0)
-                throw new Exception("Failed to set property: " + name);
+                throw new JSException("Failed to set property: " + name);
             return;
         }
         byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
@@ -256,7 +261,7 @@ public readonly unsafe struct JSValue
             {
                 JSUtils.GetUtf8(name, pName, maxLen);
                 if (QuickJS.JS_SetPropertyStr(ctx.NativeContext, _value, pName, value._value) < 0)
-                    throw new Exception("Failed to set property: " + name);
+                    throw new JSException("Failed to set property: " + name);
             }
         }
         finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
@@ -271,7 +276,7 @@ public readonly unsafe struct JSValue
     public void SetProperty(JSContext ctx, uint index, JSValue value)
     {
         if (QuickJS.JS_SetPropertyUint32(ctx.NativeContext, _value, index, value._value) < 0)
-            throw new Exception("Failed to set property at index: " + index);
+            throw new JSException("Failed to set property at index: " + index);
     }
 
     /// <summary>
@@ -283,7 +288,82 @@ public readonly unsafe struct JSValue
     public void SetProperty(JSContext ctx, JSAtom atom, JSValue value)
     {
         if (QuickJS.JS_SetProperty(ctx.NativeContext, _value, atom, value._value) < 0)
-            throw new Exception("Failed to set property for atom: " + atom.Value);
+            throw new JSException("Failed to set property for atom: " + atom.Value);
+    }
+
+    /// <summary>
+    /// Defines a property on this object using a name and a value.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="name">The property name.</param>
+    /// <param name="value">The value to define. This function consumes the reference. Use <c>value.Duplicate(ctx)</c> if you need to retain ownership.</param>
+    /// <param name="flags">The property attributes (e.g. Enumerable, Configurable).</param>
+    /// <remarks>
+    /// This method is equivalent to <c>Object.defineProperty</c> in Javascript.
+    /// </remarks>
+    public void DefineProperty(JSContext ctx, string name, JSValue value, JSPropertyFlags flags = JSPropertyFlags.CWEL)
+    {
+        if (name is null) return;
+        int len = JSUtils.GetMaxByteCount(name.Length);
+        byte* pName = stackalloc byte[len];
+        JSUtils.GetUtf8(name, pName, len);
+
+        if (QuickJS.JS_DefinePropertyValueStr(ctx.NativeContext, _value, pName, value._value, (int)flags) < 0)
+            throw new JSException("Failed to define property: " + name);
+    }
+
+    /// <summary>
+    /// Defines a property on this object using a <see cref="JSAtom"/> and a value.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="atom">The property atom.</param>
+    /// <param name="value">The value to define. This function consumes the reference.</param>
+    /// <param name="flags">The property attributes.</param>
+    /// <remarks>
+    /// This method is equivalent to <c>Object.defineProperty</c> in Javascript.
+    /// </remarks>
+    public void DefineProperty(JSContext ctx, JSAtom atom, JSValue value, JSPropertyFlags flags = JSPropertyFlags.CWEL)
+    {
+        if (QuickJS.JS_DefinePropertyValue(ctx.NativeContext, _value, atom, value._value, (int)flags) < 0)
+            throw new JSException("Failed to define property for atom: " + atom.Value);
+    }
+
+    /// <summary>
+    /// Defines an accessor property (getter/setter) on this object.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="atom">The property atom.</param>
+    /// <param name="getter">The getter function, or <see cref="JSValue.Undefined"/>. Consumes the reference.</param>
+    /// <param name="setter">The setter function, or <see cref="JSValue.Undefined"/>. Consumes the reference.</param>
+    /// <param name="flags">The accessibility flags.</param>
+    /// <remarks>
+    /// This is the recommended way to implement properties that wrap managed logic. 
+    public void DefineProperty(JSContext ctx, JSAtom atom, JSValue getter, JSValue setter, JSPropertyFlags flags = JSPropertyFlags.Enumerable | JSPropertyFlags.Configurable)
+    {
+        if (QuickJS.JS_DefinePropertyGetSet(ctx.NativeContext, _value, atom, getter._value, setter._value, (int)flags) < 0)
+            throw new JSException("Failed to define get/set property for atom: " + atom.Value);
+    }
+
+    /// <summary>
+    /// The low-level property definition method corresponding exactly to <c>JS_DefineProperty</c>.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="atom">The property atom.</param>
+    /// <param name="value">The value for a data property, or <see cref="JSValue.Undefined"/>.</param>
+    /// <param name="getter">The getter function, or <see cref="JSValue.Undefined"/>.</param>
+    /// <param name="setter">The setter function, or <see cref="JSValue.Undefined"/>.</param>
+    /// <param name="flags">A combination of base flags and 'HAS' mask flags.</param>
+    /// <remarks>
+    /// This method requires explicit 'HAS' bits (e.g. <see cref="JSPropertyFlags.HasValue"/>) to be set in the <paramref name="flags"/> parameter to tell the engine which parts of the descriptor you are providing.
+    /// <para>
+    /// Unlike the other <c>DefineProperty</c> helpers, this method DOES NOT consume your references. 
+    /// You must <c>Free(ctx)</c> on <paramref name="value"/>, <paramref name="getter"/>, and <paramref name="setter"/>, whatever is defined, separately.
+    /// </para>
+    /// </remarks>
+    public void DefinePropertyRaw(JSContext ctx, JSAtom atom, JSValue value, JSValue getter, JSValue setter, JSPropertyFlags flags)
+    {
+        if (QuickJS.JS_DefineProperty(ctx.NativeContext, _value, atom, value.NativeValue, getter.NativeValue, setter.NativeValue, (int)flags) < 0)
+            throw new JSException("Failed to define raw property for atom: " + atom.Value);
     }
 
     public JSValue Call(JSContext ctx, ReadOnlySpan<JSValue> args) => Call(ctx, Null, args);
