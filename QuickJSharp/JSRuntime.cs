@@ -84,7 +84,6 @@ public sealed unsafe class JSRuntime : IDisposable
         _rt = rt;
         if (_rt != null)
         {
-            // Use a strong handle so the C# wrapper stays alive as long as the native runtime needs it
             _handle = GCHandle.Alloc(this);
             QuickJS.JS_SetRuntimeOpaque(_rt, (void*)GCHandle.ToIntPtr(_handle));
         }
@@ -133,6 +132,11 @@ public sealed unsafe class JSRuntime : IDisposable
     }
 
     public QuickJS.JSRuntime* NativeRuntime => _rt;
+
+    /// <summary>
+    /// An optional property that can be used to associate arbitrary .NET state with this runtime. This is not used by the library.
+    /// </summary>
+    public Object? Userdata { get; set; }
 
     /// <summary>
     /// Gets or sets the memory limit for the runtime.

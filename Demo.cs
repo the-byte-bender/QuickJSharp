@@ -99,9 +99,83 @@ if (modRes.IsException)
 {
     var err = ctx.GetException();
     Console.WriteLine($"Error: {err.ToString(ctx)}");
-    err.Free(ctx);
+    modRes.Free(ctx);
 }
-modRes.Free(ctx);
+
+Console.WriteLine("\n--- Property Access Benchmark (Atom vs String) ---");
+
+var benchObj = ctx.Eval("({ propInt: 0, propStr: '' })");
+try
+{
+    var propIntAtom = ctx.NewAtom("propInt");
+    var propStrAtom = ctx.NewAtom("propStr");
+
+    const int BenchIterations = 1_000_000;
+
+    sw.Restart();
+    for (int i = 0; i < BenchIterations; i++)
+    {
+        benchObj.SetProperty(ctx, "propInt", ctx.NewInt32(i));
+    }
+    var setIntStringTime = sw.Elapsed.TotalMilliseconds;
+
+    sw.Restart();
+    for (int i = 0; i < BenchIterations; i++)
+    {
+        benchObj.SetProperty(ctx, propIntAtom, ctx.NewInt32(i));
+    }
+    var setIntAtomTime = sw.Elapsed.TotalMilliseconds;
+
+    sw.Restart();
+    long sum = 0;
+    for (int i = 0; i < BenchIterations; i++)
+    {
+        var val = benchObj.GetProperty(ctx, "propInt");
+        sum += val.ToInt32(ctx);
+        val.Free(ctx);
+    }
+    var getIntStringTime = sw.Elapsed.TotalMilliseconds;
+
+    sw.Restart();
+    sum = 0;
+    for (int i = 0; i < BenchIterations; i++)
+    {
+        var val = benchObj.GetProperty(ctx, propIntAtom);
+        sum += val.ToInt32(ctx);
+        val.Free(ctx);
+    }
+    var getIntAtomTime = sw.Elapsed.TotalMilliseconds;
+
+    var testStr = "Hello World";
+    sw.Restart();
+    for (int i = 0; i < BenchIterations; i++)
+    {
+        benchObj.SetProperty(ctx, "propStr", ctx.NewString(testStr));
+    }
+    var setStrStringTime = sw.Elapsed.TotalMilliseconds;
+
+    sw.Restart();
+    for (int i = 0; i < BenchIterations; i++)
+    {
+        benchObj.SetProperty(ctx, propStrAtom, ctx.NewString(testStr));
+    }
+    var setStrAtomTime = sw.Elapsed.TotalMilliseconds;
+
+    Console.WriteLine($"Iterations: {BenchIterations:N0}");
+    Console.WriteLine($"SET Int (Str Key): {setIntStringTime:F2}ms ({(BenchIterations / setIntStringTime * 1000):N0} ops/s)");
+    Console.WriteLine($"SET Int (Atom Key): {setIntAtomTime:F2}ms ({(BenchIterations / setIntAtomTime * 1000):N0} ops/s)");
+    Console.WriteLine($"GET Int (Str Key): {getIntStringTime:F2}ms ({(BenchIterations / getIntStringTime * 1000):N0} ops/s)");
+    Console.WriteLine($"GET Int (Atom Key): {getIntAtomTime:F2}ms ({(BenchIterations / getIntAtomTime * 1000):N0} ops/s)");
+    Console.WriteLine($"SET Str (Str Key): {setStrStringTime:F2}ms ({(BenchIterations / setStrStringTime * 1000):N0} ops/s)");
+    Console.WriteLine($"SET Str (Atom Key): {setStrAtomTime:F2}ms ({(BenchIterations / setStrAtomTime * 1000):N0} ops/s)");
+
+    propIntAtom.Free(ctx);
+    propStrAtom.Free(ctx);
+}
+finally
+{
+    benchObj.Free(ctx);
+}
 
 public partial class Program
 {

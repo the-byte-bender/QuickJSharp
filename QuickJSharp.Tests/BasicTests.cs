@@ -55,6 +55,48 @@ public class BasicTests : IDisposable
         Assert.Contains("test", ex.ToString(_ctx));
     }
 
+    [Fact]
+    public void Can_Handle_Atoms()
+    {
+        var obj = _ctx.Eval("({ foo: 42, length: 1, if: 'keyword' })");
+
+        var fooAtom = _ctx.NewAtom("foo");
+        Assert.Equal(42, obj.GetProperty(_ctx, fooAtom).ToInt32(_ctx));
+
+        var lengthAtom = _ctx.NewAtom("length");
+        Assert.Equal(1, obj.GetProperty(_ctx, lengthAtom).ToInt32(_ctx));
+
+        var ifAtom = _ctx.NewAtom("if");
+        Assert.Equal("keyword", obj.GetProperty(_ctx, ifAtom).ToString(_ctx));
+
+        var fooAtom2 = _ctx.NewAtom("foo");
+        Assert.Equal(fooAtom.Value, fooAtom2.Value);
+
+        fooAtom.Free(_ctx);
+        fooAtom2.Free(_ctx);
+        lengthAtom.Free(_ctx);
+        ifAtom.Free(_ctx);
+    }
+
+    [Fact]
+    public void Can_Handle_Symbols()
+    {
+        var symAtom = _ctx.NewSymbol("myUniqueSymbol");
+        var obj = _ctx.Eval("({})");
+
+        obj.SetProperty(_ctx, symAtom, _ctx.NewInt32(99));
+
+        var val = obj.GetProperty(_ctx, symAtom);
+        Assert.Equal(99, val.ToInt32(_ctx));
+
+        // Verify it is NOT enumerable (standard symbol behavior)
+        var keys = _ctx.Eval("(obj) => Object.keys(obj).length");
+        var keyCount = keys.Call(_ctx, [obj]);
+        Assert.Equal(0, keyCount.ToInt32(_ctx));
+
+        symAtom.Free(_ctx);
+    }
+
     public void Dispose()
     {
         _ctx.Dispose();

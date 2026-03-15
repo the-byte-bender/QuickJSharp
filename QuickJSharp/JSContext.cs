@@ -57,6 +57,11 @@ public sealed unsafe class JSContext : IDisposable
     public QuickJS.JSContext* NativeContext => _ctx;
     public JSRuntime Runtime => _rt;
 
+    /// <summary>
+    /// An optional property that can be used to associate arbitrary .NET state with this context. This is not used by the library.
+    /// </summary>
+    public Object? Userdata { get; set; }
+
     public JSValue Null => JSValue.Null;
     public JSValue Undefined => JSValue.Undefined;
     public JSValue True => JSValue.True;
@@ -183,6 +188,67 @@ public sealed unsafe class JSContext : IDisposable
             }
         }
         finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="JSAtom"/> from a string.
+    /// </summary>
+    public JSAtom NewAtom(string? value)
+    {
+        if (value is null) return JSAtom.Null;
+        int maxLen = JSUtils.GetMaxByteCount(value.Length);
+        if (maxLen <= 512)
+        {
+            byte* pStr = stackalloc byte[512];
+            JSUtils.GetUtf8(value, pStr, 512);
+            return QuickJS.JS_NewAtom(_ctx, pStr);
+        }
+        byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
+        try
+        {
+            fixed (byte* pStr = array)
+            {
+                JSUtils.GetUtf8(value, pStr, maxLen);
+                return QuickJS.JS_NewAtom(_ctx, pStr);
+            }
+        }
+        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="JSAtom"/> from a uint32.
+    /// </summary>
+    public JSAtom NewAtom(uint value) => QuickJS.JS_NewAtomUInt32(_ctx, value);
+
+    /// <summary>
+    /// Creates a new unique <see cref="JSAtom"/> representing a Javascript Symbol.
+    /// </summary>
+    /// <param name="description">An optional description for the symbol.</param>
+    /// <returns>A unique <see cref="JSAtom"/>.</returns>
+    public JSAtom NewSymbol(string? description = null)
+    {
+        QuickJS.JSValue symValue;
+        if (description != null)
+        {
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(description + "\0");
+            fixed (byte* ptr = bytes)
+            {
+                symValue = QuickJS.JS_NewSymbol(_ctx, ptr, false);
+            }
+        }
+        else
+        {
+            symValue = QuickJS.JS_NewSymbol(_ctx, null, false);
+        }
+
+        try
+        {
+            return QuickJS.JS_ValueToAtom(_ctx, symValue);
+        }
+        finally
+        {
+            QuickJS.JS_FreeValue(_ctx, symValue);
+        }
     }
 
     /// <summary>
@@ -637,6 +703,7 @@ public sealed unsafe class JSContext : IDisposable
             QuickJS.JS_FreeContext(_ctx);
             _ctx = null;
         }
+        Userdata = null;
         if (_handle.IsAllocated)
         {
             _handle.Free();

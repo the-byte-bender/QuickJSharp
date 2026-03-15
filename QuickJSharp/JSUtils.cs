@@ -16,6 +16,15 @@ internal static unsafe class JSUtils
     }
 
     /// <summary>
+    /// Gets a string from a UTF8 buffer of a specific length.
+    /// </summary>
+    public static string GetString(byte* ptr, int length)
+    {
+        if (ptr == null) return null!;
+        return UTF8.GetString(ptr, length);
+    }
+
+    /// <summary>
     /// Encodes a string as null-terminated UTF8 into a buffer.
     /// Returns the number of bytes written (excluding null terminator).
     /// </summary>

@@ -223,6 +223,20 @@ public readonly unsafe struct JSValue
         return new JSValue(QuickJS.JS_GetPropertyUint32(ctx.NativeContext, _value, index));
     }
 
+    /// <summary>
+    /// Gets a property of the object using a <see cref="JSAtom"/>.
+    /// </summary>
+    public JSValue GetProperty(JSContext ctx, JSAtom atom)
+    {
+        return new JSValue(QuickJS.JS_GetProperty(ctx.NativeContext, _value, atom));
+    }
+
+    /// <summary>
+    /// Sets a property of the object.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="name">The name of the property to set.</param>
+    /// <param name="value">The value to set. This function consumes the reference of the value. If you need to keep using it, pass <c>value.Duplicate(ctx)</c>.</param>
     public void SetProperty(JSContext ctx, string name, JSValue value)
     {
         if (name is null) return;
@@ -231,7 +245,6 @@ public readonly unsafe struct JSValue
         {
             byte* pName = stackalloc byte[512];
             JSUtils.GetUtf8(name, pName, 512);
-            QuickJS.JS_DupValue(ctx.NativeContext, value._value);
             if (QuickJS.JS_SetPropertyStr(ctx.NativeContext, _value, pName, value._value) < 0)
                 throw new Exception("Failed to set property: " + name);
             return;
@@ -242,7 +255,6 @@ public readonly unsafe struct JSValue
             fixed (byte* pName = array)
             {
                 JSUtils.GetUtf8(name, pName, maxLen);
-                QuickJS.JS_DupValue(ctx.NativeContext, value._value);
                 if (QuickJS.JS_SetPropertyStr(ctx.NativeContext, _value, pName, value._value) < 0)
                     throw new Exception("Failed to set property: " + name);
             }
@@ -250,11 +262,28 @@ public readonly unsafe struct JSValue
         finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
     }
 
+    /// <summary>
+    /// Sets a property of the object at the specified index.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="index">The index of the property to set.</param>
+    /// <param name="value">The value to set. This function consumes the reference of the value. If you need to keep using it, pass <c>value.Duplicate(ctx)</c>.</param>
     public void SetProperty(JSContext ctx, uint index, JSValue value)
     {
-        QuickJS.JS_DupValue(ctx.NativeContext, value._value);
         if (QuickJS.JS_SetPropertyUint32(ctx.NativeContext, _value, index, value._value) < 0)
             throw new Exception("Failed to set property at index: " + index);
+    }
+
+    /// <summary>
+    /// Sets a property of the object using a <see cref="JSAtom"/>.
+    /// </summary>
+    /// <param name="ctx">The <see cref="JSContext"/> to use.</param>
+    /// <param name="atom">The <see cref="JSAtom"/> of the property to set.</param>
+    /// <param name="value">The value to set. This function consumes the reference of the value. If you need to keep using it, pass <c>value.Duplicate(ctx)</c>.</param>
+    public void SetProperty(JSContext ctx, JSAtom atom, JSValue value)
+    {
+        if (QuickJS.JS_SetProperty(ctx.NativeContext, _value, atom, value._value) < 0)
+            throw new Exception("Failed to set property for atom: " + atom.Value);
     }
 
     public JSValue Call(JSContext ctx, ReadOnlySpan<JSValue> args) => Call(ctx, Null, args);
@@ -283,7 +312,7 @@ public readonly unsafe struct JSValue
     /// </remarks>
     public bool SetConstructorBit(JSContext ctx, bool isConstructor) => QuickJS.JS_SetConstructorBit(ctx.NativeContext, _value, isConstructor);
 
-    public JSValue Clone(JSContext ctx)
+    public JSValue Duplicate(JSContext ctx)
     {
         return new JSValue(QuickJS.JS_DupValue(ctx.NativeContext, _value));
     }
