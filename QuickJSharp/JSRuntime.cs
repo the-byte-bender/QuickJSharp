@@ -73,6 +73,7 @@ public sealed unsafe class JSRuntime : IDisposable
     private QuickJS.JSRuntime* _rt;
     private GCHandle _handle;
     private JSClassMetadata[] _classMetadata = new JSClassMetadata[64];
+    private readonly List<IRuntimeExtension> _extensions = [];
 
     public JSRuntime() : this(QuickJS.JS_NewRuntime())
     {
@@ -199,6 +200,17 @@ public sealed unsafe class JSRuntime : IDisposable
     }
 
     /// <summary>
+    /// Adds an extension to this runtime and initializes it.
+    /// </summary>
+    /// <param name="extension">The extension to add.</param>
+    public void AddExtension(IRuntimeExtension extension)
+    {
+        ArgumentNullException.ThrowIfNull(extension);
+        extension.Initialize(this);
+        _extensions.Add(extension);
+    }
+
+    /// <summary>
     /// Creates a new Javascript context for this runtime with all intrinsics.
     /// </summary>
     /// <returns>A new <see cref="JSContext"/> instance.</returns>
@@ -206,7 +218,21 @@ public sealed unsafe class JSRuntime : IDisposable
     {
         QuickJS.JSContext* ctx = QuickJS.JS_NewContext(_rt);
         if (ctx == null) throw new InvalidOperationException("Failed to create QuickJS context.");
-        return new JSContext(this, ctx);
+
+        var jsCtx = new JSContext(this, ctx);
+        try
+        {
+            foreach (var ext in _extensions)
+            {
+                ext.SetupContext(jsCtx);
+            }
+        }
+        catch
+        {
+            jsCtx.Dispose();
+            throw;
+        }
+        return jsCtx;
     }
 
     /// <summary>
@@ -221,7 +247,21 @@ public sealed unsafe class JSRuntime : IDisposable
     {
         QuickJS.JSContext* ctx = QuickJS.JS_NewContextRaw(_rt);
         if (ctx == null) throw new InvalidOperationException("Failed to create raw QuickJS context.");
-        return new JSContext(this, ctx);
+
+        var jsCtx = new JSContext(this, ctx);
+        try
+        {
+            foreach (var ext in _extensions)
+            {
+                ext.SetupContext(jsCtx);
+            }
+        }
+        catch
+        {
+            jsCtx.Dispose();
+            throw;
+        }
+        return jsCtx;
     }
 
     /// <summary>
@@ -344,6 +384,19 @@ public sealed unsafe class JSRuntime : IDisposable
     {
         if (_rt != null)
         {
+            foreach (var extension in _extensions)
+            {
+                try
+                {
+                    extension.Dispose();
+                }
+                catch
+                {
+                    // Swallow exceptions to ensure all extensions get a chance to clean up.
+                }
+            }
+            _extensions.Clear();
+
             QuickJS.JS_FreeRuntime(_rt);
             _rt = null;
         }
