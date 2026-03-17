@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="QuickJSharp/QuickJSharp.csproj" />
+  <Project Path="QuickJSharp.Bindings/QuickJSharp.Bindings.csproj" />
   <Project Path="QuickJSharp.Tests/QuickJSharp.Tests.csproj" />
 </Solution>
