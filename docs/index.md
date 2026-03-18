@@ -10,7 +10,8 @@ Welcome to the official documentation for **QuickJSharp**, a high-performance, m
 ## Quick Links
 
 - [**Get Started**](articles/getting-started.md)
-- [**API Reference**](api/QuickJSharp.yml)
+- [**API Reference (Core)**](api/QuickJSharp.yml)
+- [**API Reference (Bindings)**](api/QuickJSharp.Bindings.yml)
 - [**GitHub Repository**](https://github.com/the-byte-bender/quickjsharp)
 
 ## Very Basic Example
@@ -24,4 +25,5 @@ using var ctx = rt.CreateContext();
 // Evaluate script
 var result = ctx.Eval("1 + 1");
 Console.WriteLine(result.ToInt32(ctx)); // 2
+result.Free(ctx);
 ```

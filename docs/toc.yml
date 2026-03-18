@@ -3,6 +3,11 @@
 - name: Tutorials
   href: articles/toc.yml
 - name: API Reference
-  href: api/QuickJSharp.yml
+  topicHref: api/QuickJSharp.yml
+  items:
+      - name: QuickJSharp (Core)
+        href: api/QuickJSharp.yml
+      - name: QuickJSharp.Bindings
+        href: api/QuickJSharp.Bindings.yml
 - name: Repository
   href: https://github.com/the-byte-bender/quickjsharp

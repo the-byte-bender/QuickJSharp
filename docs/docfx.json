@@ -43,13 +43,14 @@
         {
             "src": [
                 {
-                    "files": ["QuickJSharp/QuickJSharp.csproj"],
+                    "files": [
+                        "QuickJSharp/QuickJSharp.csproj",
+                        "QuickJSharp.Bindings/QuickJSharp.Bindings.csproj"
+                    ],
                     "src": ".."
                 }
             ],
-            "dest": "api",
-            "disableGitFeatures": false,
-            "disableDefaultFilter": false
+            "dest": "api"
         }
     ]
 }
