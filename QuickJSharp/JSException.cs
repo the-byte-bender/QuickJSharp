@@ -8,11 +8,9 @@ namespace QuickJSharp;
 /// </remarks>
 public sealed class JSException : Exception
 {
-    internal JSException(string message) : base(message)
-    {
-    }
+    internal JSException(string message)
+        : base(message) { }
 
-    internal JSException(string message, Exception innerException) : base(message, innerException)
-    {
-    }
+    internal JSException(string message, Exception innerException)
+        : base(message, innerException) { }
 }

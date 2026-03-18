@@ -28,7 +28,11 @@ public class CustomClassTests : IDisposable
         var instance = _ctx.NewObjectClass(classId);
         Assert.True(instance.IsObject);
         // By default, no proto means no toString etc.
-        Assert.True(_ctx.Eval("(obj) => Object.getPrototypeOf(obj) === null").Call(_ctx, _ctx.Undefined, [instance]).ToBoolean(_ctx));
+        Assert.True(
+            _ctx.Eval("(obj) => Object.getPrototypeOf(obj) === null")
+                .Call(_ctx, _ctx.Undefined, [instance])
+                .ToBoolean(_ctx)
+        );
     }
 
     [Fact]
@@ -82,11 +86,15 @@ public class CustomClassTests : IDisposable
     {
         var classId = _rt.NewClassID();
         bool called = false;
-        _rt.DefineClass(classId, "CallableClass", call: (ctx, func, thisVal, args, flags) =>
-        {
-            called = true;
-            return ctx.NewInt32(args[0].ToInt32(ctx) * 2);
-        });
+        _rt.DefineClass(
+            classId,
+            "CallableClass",
+            call: (ctx, func, thisVal, args, flags) =>
+            {
+                called = true;
+                return ctx.NewInt32(args[0].ToInt32(ctx) * 2);
+            }
+        );
 
         var instance = _ctx.NewObjectClass(classId);
         _ctx.GlobalObject.SetProperty(_ctx, "callable", instance);
@@ -102,10 +110,14 @@ public class CustomClassTests : IDisposable
         var classId = _rt.NewClassID();
         bool finalized = false;
 
-        _rt.DefineClass(classId, "FinalizableClass", finalizer: (rt, val) =>
-        {
-            finalized = true;
-        });
+        _rt.DefineClass(
+            classId,
+            "FinalizableClass",
+            finalizer: (rt, val) =>
+            {
+                finalized = true;
+            }
+        );
 
         {
             var instance = _ctx.NewObjectClass(classId);
@@ -128,10 +140,14 @@ public class CustomClassTests : IDisposable
         var classId = _rt.NewClassID();
         IntPtr finalizedOpaque = IntPtr.Zero;
 
-        _rt.DefineClass(classId, "OpaqueFinalizableClass", (rt, val) =>
-        {
-            finalizedOpaque = val.Opaque;
-        });
+        _rt.DefineClass(
+            classId,
+            "OpaqueFinalizableClass",
+            (rt, val) =>
+            {
+                finalizedOpaque = val.Opaque;
+            }
+        );
 
         IntPtr myPtr = (IntPtr)unchecked((IntPtr)0xDEADBEEF);
         {
@@ -140,7 +156,8 @@ public class CustomClassTests : IDisposable
             instance.Free(_ctx);
         }
 
-        for (int i = 0; i < 10; i++) _rt.RunGC();
+        for (int i = 0; i < 10; i++)
+            _rt.RunGC();
 
         Assert.Equal(myPtr, finalizedOpaque);
     }
@@ -180,16 +197,20 @@ public class CustomClassTests : IDisposable
         var classId = _rt.NewClassID();
         _rt.DefineClass(classId, "Point");
 
-        var pointCtor = _ctx.NewFunction((ctx, newTarget, args) =>
-        {
-            var proto = newTarget.GetProperty(ctx, "prototype");
-            var instance = ctx.NewObjectProtoClass(proto, classId);
+        var pointCtor = _ctx.NewFunction(
+            (ctx, newTarget, args) =>
+            {
+                var proto = newTarget.GetProperty(ctx, "prototype");
+                var instance = ctx.NewObjectProtoClass(proto, classId);
 
-            instance.SetProperty(ctx, "x", args[0]);
-            instance.SetProperty(ctx, "y", args[1]);
+                instance.SetProperty(ctx, "x", args[0]);
+                instance.SetProperty(ctx, "y", args[1]);
 
-            return instance;
-        }, "Point", 2);
+                return instance;
+            },
+            "Point",
+            2
+        );
 
         pointCtor.SetConstructorBit(_ctx, true);
 
@@ -211,14 +232,17 @@ public class CustomClassTests : IDisposable
         var classId = _rt.NewClassID();
         _rt.DefineClass(classId, "NativeBase");
 
-        var nativeCtor = _ctx.NewFunction((ctx, newTarget, args) =>
-        {
-            var proto = newTarget.GetProperty(ctx, "prototype");
-            var instance = ctx.NewObjectProtoClass(proto, classId);
+        var nativeCtor = _ctx.NewFunction(
+            (ctx, newTarget, args) =>
+            {
+                var proto = newTarget.GetProperty(ctx, "prototype");
+                var instance = ctx.NewObjectProtoClass(proto, classId);
 
-            instance.Opaque = (IntPtr)0xCC;
-            return instance;
-        }, "NativeBase");
+                instance.Opaque = (IntPtr)0xCC;
+                return instance;
+            },
+            "NativeBase"
+        );
 
         nativeCtor.SetConstructorBit(_ctx, true);
         var nativeProto = _ctx.NewObject();
@@ -227,7 +251,8 @@ public class CustomClassTests : IDisposable
 
         _ctx.GlobalObject.SetProperty(_ctx, "NativeBase", nativeCtor);
 
-        var result = _ctx.Eval(@"
+        var result = _ctx.Eval(
+            @"
             class SubClass extends NativeBase {
                 constructor(val) {
                     super();
@@ -235,14 +260,17 @@ public class CustomClassTests : IDisposable
                 }
             }
             new SubClass(123);
-        ");
+        "
+        );
 
         Assert.True(result.IsObject);
         Assert.Equal(classId.Value, result.ClassID.Value);
         Assert.Equal((IntPtr)0xCC, result.Opaque);
         Assert.Equal(123, result.GetProperty(_ctx, "subVal").ToInt32(_ctx));
 
-        Assert.True(_ctx.Eval("(obj) => obj instanceof NativeBase").Call(_ctx, _ctx.Undefined, [result]).ToBoolean(_ctx));
+        Assert.True(
+            _ctx.Eval("(obj) => obj instanceof NativeBase").Call(_ctx, _ctx.Undefined, [result]).ToBoolean(_ctx)
+        );
     }
 
     [Fact]

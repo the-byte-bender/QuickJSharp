@@ -15,7 +15,7 @@ namespace QuickJSharp.Bindings;
 public abstract class ClassBinding : BindingBase
 {
     /// <summary>
-    /// The CLR type this binding represents. Used as a unique identity key by the binding registry 
+    /// The CLR type this binding represents. Used as a unique identity key by the binding registry
     /// </summary>
     public abstract Type ClrType { get; }
 

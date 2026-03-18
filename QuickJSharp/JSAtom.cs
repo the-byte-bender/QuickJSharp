@@ -35,7 +35,8 @@ public readonly unsafe record struct JSAtom(QuickJS.JSAtom NativeValue)
     {
         nuint len;
         byte* ptr = QuickJS.JS_AtomToCStringLen(ctx.NativeContext, &len, NativeValue);
-        if (ptr == null) return null!;
+        if (ptr == null)
+            return null!;
         try
         {
             return JSUtils.GetString(ptr, (int)len);
@@ -79,5 +80,6 @@ public readonly unsafe record struct JSAtom(QuickJS.JSAtom NativeValue)
     public JSAtom Duplicate(JSRuntime runtime) => new(QuickJS.JS_DupAtomRT(runtime.NativeRuntime, NativeValue));
 
     public static implicit operator JSAtom(QuickJS.JSAtom native) => new(native);
+
     public static implicit operator QuickJS.JSAtom(JSAtom atom) => atom.NativeValue;
 }

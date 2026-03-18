@@ -31,7 +31,7 @@ public enum JSEvalFlags
     Global = QuickJS.JS_EVAL_TYPE_GLOBAL,
 
     /// <summary>
-    /// Module code. The script is evaluated as a module. 
+    /// Module code. The script is evaluated as a module.
     /// Imports and exports are allowed.
     /// </summary>
     Module = QuickJS.JS_EVAL_TYPE_MODULE,
@@ -42,7 +42,7 @@ public enum JSEvalFlags
     Strict = QuickJS.JS_EVAL_FLAG_STRICT,
 
     /// <summary>
-    /// Compile the script but do not execute it. 
+    /// Compile the script but do not execute it.
     /// The returned result is a bytecode object that can be executed later.
     /// </summary>
     CompileOnly = QuickJS.JS_EVAL_FLAG_COMPILE_ONLY,
@@ -53,7 +53,7 @@ public enum JSEvalFlags
     BacktraceBarrier = QuickJS.JS_EVAL_FLAG_BACKTRACE_BARRIER,
 
     /// <summary>
-    /// Allow top-level await in normal scripts. 
+    /// Allow top-level await in normal scripts.
     /// When used, evaluation returns a Promise if top-level await is encountered.
     /// Only compatible with <see cref="Global"/>. <see cref="Module"/> always allows top-level await.
     /// </summary>
@@ -67,7 +67,7 @@ public enum JSEvalFlags
 public enum JSWriteObjectFlags
 {
     /// <summary>
-    /// Allow writing bytecode (functions/modules). 
+    /// Allow writing bytecode (functions/modules).
     /// Must be set to serialize executable code.
     /// </summary>
     Bytecode = QuickJS.JS_WRITE_OBJ_BYTECODE,
@@ -78,7 +78,7 @@ public enum JSWriteObjectFlags
     SharedArrayBuffer = QuickJS.JS_WRITE_OBJ_SAB,
 
     /// <summary>
-    /// Allow object references. This enables the serialization of circular 
+    /// Allow object references. This enables the serialization of circular
     /// or shared object graphs by assigning IDs to objects.
     /// </summary>
     Reference = QuickJS.JS_WRITE_OBJ_REFERENCE,
@@ -103,7 +103,7 @@ public enum JSWriteObjectFlags
 public enum JSReadObjectFlags
 {
     /// <summary>
-    /// Allow reading bytecode (functions/modules). 
+    /// Allow reading bytecode (functions/modules).
     /// Must match the setting used during serialization.
     /// </summary>
     Bytecode = QuickJS.JS_READ_OBJ_BYTECODE,
@@ -120,7 +120,7 @@ public enum JSReadObjectFlags
     SharedArrayBuffer = QuickJS.JS_READ_OBJ_SAB,
 
     /// <summary>
-    /// Allow object references. Required if the bytecode was written 
+    /// Allow object references. Required if the bytecode was written
     /// with <see cref="JSWriteObjectFlags.Reference"/>.
     /// </summary>
     Reference = QuickJS.JS_READ_OBJ_REFERENCE,
@@ -356,5 +356,3 @@ public enum JSGetPropertyNamesFlags
     /// </summary>
     SetEnum = QuickJS.JS_GPN_SET_ENUM,
 }
-
-

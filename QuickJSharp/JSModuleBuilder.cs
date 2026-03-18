@@ -4,7 +4,7 @@ namespace QuickJSharp;
 /// A helper builder to simplify creating QuickJS native modules.
 /// </summary>
 /// <remarks>
-/// This handles the two-stage ESM registration (metadata phase and initialization phase) 
+/// This handles the two-stage ESM registration (metadata phase and initialization phase)
 /// automatically from a single list of definitions.
 /// </remarks>
 public sealed class JSModuleBuilder
@@ -25,7 +25,7 @@ public sealed class JSModuleBuilder
     /// Adds an export to the module with a factory to create its value.
     /// </summary>
     /// <remarks>
-    /// The factory lambda will only be called when the module is actually 
+    /// The factory lambda will only be called when the module is actually
     /// evaluated (initialized) by the QuickJS engine.
     /// </remarks>
     /// <param name="name">The name of the export.</param>
@@ -33,7 +33,8 @@ public sealed class JSModuleBuilder
     /// <returns>This builder instance.</returns>
     public JSModuleBuilder Export(string name, Func<JSContext, JSValue> factory)
     {
-        if (string.IsNullOrEmpty(name)) throw new ArgumentException("Export name cannot be null or empty.", nameof(name));
+        if (string.IsNullOrEmpty(name))
+            throw new ArgumentException("Export name cannot be null or empty.", nameof(name));
 
         _entries.Add(new ModuleEntry(name, factory));
         return this;
@@ -49,15 +50,18 @@ public sealed class JSModuleBuilder
     public JSModule Build()
     {
         var entries = _entries;
-        var module = _ctx.NewModule(_name, (ctx, mod) =>
-        {
-            foreach (var entry in entries)
+        var module = _ctx.NewModule(
+            _name,
+            (ctx, mod) =>
             {
-                JSValue val = entry.Factory(ctx);
-                mod.SetExport(entry.Name, val);
+                foreach (var entry in entries)
+                {
+                    JSValue val = entry.Factory(ctx);
+                    mod.SetExport(entry.Name, val);
+                }
+                return 0; // Success
             }
-            return 0; // Success
-        });
+        );
 
         if (module.HasValue)
         {

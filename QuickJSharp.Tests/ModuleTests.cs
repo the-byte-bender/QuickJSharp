@@ -18,9 +18,7 @@ public class ModuleTests : IDisposable
         {
             if (name == "test")
             {
-                return ctx.CreateModule("test")
-                    .Export("magic", c => c.NewInt32(42))
-                    .Build();
+                return ctx.CreateModule("test").Export("magic", c => c.NewInt32(42)).Build();
             }
             return null;
         };
@@ -43,11 +41,18 @@ public class ModuleTests : IDisposable
             if (name == "logger")
             {
                 return ctx.CreateModule("logger")
-                    .Export("log", c => c.NewFunction((cx, self, args) =>
-                    {
-                        called = true;
-                        return cx.Undefined;
-                    }, "log"))
+                    .Export(
+                        "log",
+                        c =>
+                            c.NewFunction(
+                                (cx, self, args) =>
+                                {
+                                    called = true;
+                                    return cx.Undefined;
+                                },
+                                "log"
+                            )
+                    )
                     .Build();
             }
             return null;

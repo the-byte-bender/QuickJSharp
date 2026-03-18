@@ -25,7 +25,7 @@ public abstract class BindingBase : IDisposable
     public abstract void OnRuntime(JSRuntime runtime);
 
     /// <summary>
-    /// Called for every <see cref="JSContext"/> created within the associated <see cref="JSRuntime"/>. 
+    /// Called for every <see cref="JSContext"/> created within the associated <see cref="JSRuntime"/>.
     /// </summary>
     /// <param name="context">The context being configured.</param>
     public abstract void OnContext(JSContext context);

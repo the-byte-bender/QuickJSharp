@@ -40,13 +40,15 @@ public sealed unsafe class JSContext : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static JSContext FromNative(QuickJS.JSContext* ctx)
     {
-        if (ctx == null) throw new ArgumentNullException(nameof(ctx));
+        if (ctx == null)
+            throw new ArgumentNullException(nameof(ctx));
 
         IntPtr ptr = (IntPtr)QuickJS.JS_GetContextOpaque(ctx);
         if (ptr != IntPtr.Zero)
         {
             var h = GCHandle.FromIntPtr(ptr);
-            if (h.Target is JSContext existing) return existing;
+            if (h.Target is JSContext existing)
+                return existing;
         }
 
         var rt = JSRuntime.FromNative(QuickJS.JS_GetRuntime(ctx));
@@ -97,7 +99,8 @@ public sealed unsafe class JSContext : IDisposable
     /// </summary>
     public JSValue ThrowError(string message)
     {
-        if (message is null) return new JSValue(QuickJS.JS_ThrowInternalError(_ctx, null));
+        if (message is null)
+            return new JSValue(QuickJS.JS_ThrowInternalError(_ctx, null));
         int maxLen = JSUtils.GetMaxByteCount(message.Length);
         if (maxLen <= 512)
         {
@@ -114,7 +117,10 @@ public sealed unsafe class JSContext : IDisposable
                 return new JSValue(QuickJS.JS_ThrowInternalError(_ctx, pMsg));
             }
         }
-        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
     }
 
     /// <summary>
@@ -122,7 +128,8 @@ public sealed unsafe class JSContext : IDisposable
     /// </summary>
     public JSValue ThrowTypeError(string message)
     {
-        if (message is null) return new JSValue(QuickJS.JS_ThrowTypeError(_ctx, null));
+        if (message is null)
+            return new JSValue(QuickJS.JS_ThrowTypeError(_ctx, null));
         int maxLen = JSUtils.GetMaxByteCount(message.Length);
         if (maxLen <= 512)
         {
@@ -139,7 +146,10 @@ public sealed unsafe class JSContext : IDisposable
                 return new JSValue(QuickJS.JS_ThrowTypeError(_ctx, pMsg));
             }
         }
-        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
     }
 
     /// <summary>
@@ -155,8 +165,8 @@ public sealed unsafe class JSContext : IDisposable
     /// <param name="classId">The class ID to set the prototype for.</param>
     /// <param name="proto">The prototype object.</param>
     /// <remarks>
-    /// This prototype is used by <see cref="NewObjectClass"/> to initialize the internal 
-    /// [[Prototype]] of new instances. It is optional if instances are created exclusively 
+    /// This prototype is used by <see cref="NewObjectClass"/> to initialize the internal
+    /// [[Prototype]] of new instances. It is optional if instances are created exclusively
     /// using <see cref="NewObjectProtoClass"/> with an explicit prototype.
     /// </remarks>
     public void SetClassProto(JSClassID classId, JSValue proto)
@@ -169,7 +179,8 @@ public sealed unsafe class JSContext : IDisposable
     /// </summary>
     public JSValue NewString(string value)
     {
-        if (value is null) return new JSValue(QuickJS.JS_NewString(_ctx, null));
+        if (value is null)
+            return new JSValue(QuickJS.JS_NewString(_ctx, null));
         int maxLen = JSUtils.GetMaxByteCount(value.Length);
         if (maxLen <= 512)
         {
@@ -186,7 +197,10 @@ public sealed unsafe class JSContext : IDisposable
                 return new JSValue(QuickJS.JS_NewString(_ctx, pStr));
             }
         }
-        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
     }
 
     /// <summary>
@@ -194,7 +208,8 @@ public sealed unsafe class JSContext : IDisposable
     /// </summary>
     public JSAtom NewAtom(string? value)
     {
-        if (value is null) return JSAtom.Null;
+        if (value is null)
+            return JSAtom.Null;
         int maxLen = JSUtils.GetMaxByteCount(value.Length);
         if (maxLen <= 512)
         {
@@ -211,7 +226,10 @@ public sealed unsafe class JSContext : IDisposable
                 return QuickJS.JS_NewAtom(_ctx, pStr);
             }
         }
-        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
     }
 
     /// <summary>
@@ -291,10 +309,11 @@ public sealed unsafe class JSContext : IDisposable
     /// <param name="classId">The class ID for the object.</param>
     /// <returns>A new <see cref="JSValue"/> object.</returns>
     /// <remarks>
-    /// The object's internal [[Prototype]] is set to the value previously provided to <see cref="SetClassProto"/>. 
+    /// The object's internal [[Prototype]] is set to the value previously provided to <see cref="SetClassProto"/>.
     /// If no prototype has been set for this <paramref name="classId"/>, the new object will have a <c>null</c> prototype.
     /// </remarks>
-    public JSValue NewObjectClass(JSClassID classId) => new JSValue(QuickJS.JS_NewObjectClass(_ctx, classId.NativeValue));
+    public JSValue NewObjectClass(JSClassID classId) =>
+        new JSValue(QuickJS.JS_NewObjectClass(_ctx, classId.NativeValue));
 
     /// <summary>
     /// Creates a new object instance of a specific class with an explicit prototype.
@@ -305,7 +324,8 @@ public sealed unsafe class JSContext : IDisposable
     /// <remarks>
     /// This method allows specifying a prototype directly, bypassing the default registration managed by <see cref="SetClassProto"/> if any.
     /// </remarks>
-    public JSValue NewObjectProtoClass(JSValue proto, JSClassID classId) => new JSValue(QuickJS.JS_NewObjectProtoClass(_ctx, proto.NativeValue, classId.NativeValue));
+    public JSValue NewObjectProtoClass(JSValue proto, JSClassID classId) =>
+        new JSValue(QuickJS.JS_NewObjectProtoClass(_ctx, proto.NativeValue, classId.NativeValue));
 
     /// <summary>
     /// Creates a new empty Javascript array.
@@ -334,7 +354,17 @@ public sealed unsafe class JSContext : IDisposable
         {
             byte* pName = stackalloc byte[512];
             JSUtils.GetUtf8(name, pName, 512);
-            return new JSValue(QuickJS.JS_NewCClosure(_ctx, &ManagedFunctionBridge, pName, &ManagedFunctionFinalizer, length, 0, pOpaque));
+            return new JSValue(
+                QuickJS.JS_NewCClosure(
+                    _ctx,
+                    &ManagedFunctionBridge,
+                    pName,
+                    &ManagedFunctionFinalizer,
+                    length,
+                    0,
+                    pOpaque
+                )
+            );
         }
         byte[] array = System.Buffers.ArrayPool<byte>.Shared.Rent(maxLen);
         try
@@ -342,7 +372,17 @@ public sealed unsafe class JSContext : IDisposable
             fixed (byte* pName = array)
             {
                 JSUtils.GetUtf8(name, pName, maxLen);
-                return new JSValue(QuickJS.JS_NewCClosure(_ctx, &ManagedFunctionBridge, pName, &ManagedFunctionFinalizer, length, 0, pOpaque));
+                return new JSValue(
+                    QuickJS.JS_NewCClosure(
+                        _ctx,
+                        &ManagedFunctionBridge,
+                        pName,
+                        &ManagedFunctionFinalizer,
+                        length,
+                        0,
+                        pOpaque
+                    )
+                );
             }
         }
         finally
@@ -354,7 +394,11 @@ public sealed unsafe class JSContext : IDisposable
     /// <summary>
     /// Creates a JS function from a raw unmanaged C function pointer.
     /// </summary>
-    public JSValue NewFunctionRaw(delegate* unmanaged[Cdecl]<QuickJS.JSContext*, QuickJS.JSValue, int, QuickJS.JSValue*, QuickJS.JSValue> func, string name, int length = 0)
+    public JSValue NewFunctionRaw(
+        delegate* unmanaged[Cdecl]<QuickJS.JSContext*, QuickJS.JSValue, int, QuickJS.JSValue*, QuickJS.JSValue> func,
+        string name,
+        int length = 0
+    )
     {
         int maxLen = JSUtils.GetMaxByteCount(name.Length);
         if (maxLen <= 512)
@@ -415,10 +459,14 @@ public sealed unsafe class JSContext : IDisposable
                     m = QuickJS.JS_NewCModule(_ctx, pName, &NativeModuleInit);
                 }
             }
-            finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+            finally
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(array);
+            }
         }
 
-        if (m == null) return null;
+        if (m == null)
+            return null;
 
         // Map the ModuleDef pointer to its initialization delegate for robust callback routing
         _moduleInits ??= [];
@@ -501,7 +549,8 @@ public sealed unsafe class JSContext : IDisposable
     /// </summary>
     public JSValue Eval(string script, string filename = "input", JSEvalFlags flags = JSEvalFlags.Global)
     {
-        if (script is null) return default;
+        if (script is null)
+            return default;
 
         int scriptMax = JSUtils.GetMaxByteCount(script.Length);
         int fileMax = JSUtils.GetMaxByteCount(filename.Length);
@@ -533,7 +582,10 @@ public sealed unsafe class JSContext : IDisposable
                 fileArray = System.Buffers.ArrayPool<byte>.Shared.Rent(fileMax);
             }
 
-            fixed (byte* pS = scriptArray, pF = fileArray)
+            fixed (
+                byte* pS = scriptArray,
+                    pF = fileArray
+            )
             {
                 byte* sPtr = pScript != null ? pScript : pS;
                 byte* fPtr = pFile != null ? pFile : pF;
@@ -546,8 +598,10 @@ public sealed unsafe class JSContext : IDisposable
         }
         finally
         {
-            if (scriptArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(scriptArray);
-            if (fileArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(fileArray);
+            if (scriptArray != null)
+                System.Buffers.ArrayPool<byte>.Shared.Return(scriptArray);
+            if (fileArray != null)
+                System.Buffers.ArrayPool<byte>.Shared.Return(fileArray);
         }
     }
 
@@ -569,8 +623,10 @@ public sealed unsafe class JSContext : IDisposable
         if (ptr == null)
         {
             var ex = GetException();
-            if (ex.IsException) return null; // Already an exception
-            if (ex.IsNull || ex.IsUndefined) return null;
+            if (ex.IsException)
+                return null; // Already an exception
+            if (ex.IsNull || ex.IsUndefined)
+                return null;
             throw new JSException("WriteObject failed: " + ex.ToString(this));
         }
 
@@ -606,18 +662,25 @@ public sealed unsafe class JSContext : IDisposable
         }
     }
 
-    public bool TryWriteObject(JSValue value, Span<byte> buffer, out int written, JSWriteObjectFlags flags = JSWriteObjectFlags.Bytecode)
+    public bool TryWriteObject(
+        JSValue value,
+        Span<byte> buffer,
+        out int written,
+        JSWriteObjectFlags flags = JSWriteObjectFlags.Bytecode
+    )
     {
         nuint size;
         byte* ptr = QuickJS.JS_WriteObject(_ctx, &size, value.NativeValue, (int)flags);
         written = 0;
 
-        if (ptr == null) return false;
+        if (ptr == null)
+            return false;
 
         try
         {
             int intSize = (int)size;
-            if (buffer.Length < intSize) return false;
+            if (buffer.Length < intSize)
+                return false;
 
             new ReadOnlySpan<byte>(ptr, intSize).CopyTo(buffer);
             written = intSize;
@@ -634,7 +697,8 @@ public sealed unsafe class JSContext : IDisposable
     /// </summary>
     public JSValue ParseJson(string json, string filename = "input.json")
     {
-        if (json is null) return default;
+        if (json is null)
+            return default;
 
         int jsonMax = JSUtils.GetMaxByteCount(json.Length);
         int fileMax = JSUtils.GetMaxByteCount(filename.Length);
@@ -666,7 +730,10 @@ public sealed unsafe class JSContext : IDisposable
                 fileArray = System.Buffers.ArrayPool<byte>.Shared.Rent(fileMax);
             }
 
-            fixed (byte* pJ = jsonArray, pF = fileArray)
+            fixed (
+                byte* pJ = jsonArray,
+                    pF = fileArray
+            )
             {
                 byte* jPtr = pJson != null ? pJson : pJ;
                 byte* fPtr = pFile != null ? pFile : pF;
@@ -679,8 +746,10 @@ public sealed unsafe class JSContext : IDisposable
         }
         finally
         {
-            if (jsonArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(jsonArray);
-            if (fileArray != null) System.Buffers.ArrayPool<byte>.Shared.Return(fileArray);
+            if (jsonArray != null)
+                System.Buffers.ArrayPool<byte>.Shared.Return(jsonArray);
+            if (fileArray != null)
+                System.Buffers.ArrayPool<byte>.Shared.Return(fileArray);
         }
     }
 
@@ -690,9 +759,16 @@ public sealed unsafe class JSContext : IDisposable
     public string? JSONStringify(JSValue obj, JSValue replacer = default, JSValue space = default)
     {
         JSValue strVal = new(QuickJS.JS_JSONStringify(_ctx, obj.NativeValue, replacer.NativeValue, space.NativeValue));
-        if (strVal.IsException) return null;
-        try { return strVal.ToString(this); }
-        finally { strVal.Free(this); }
+        if (strVal.IsException)
+            return null;
+        try
+        {
+            return strVal.ToString(this);
+        }
+        finally
+        {
+            strVal.Free(this);
+        }
     }
 
     public void Dispose()
@@ -711,7 +787,14 @@ public sealed unsafe class JSContext : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static QuickJS.JSValue ManagedFunctionBridge(QuickJS.JSContext* ctx, QuickJS.JSValue this_val, int argc, QuickJS.JSValue* argv, int magic, void* opaque)
+    private static QuickJS.JSValue ManagedFunctionBridge(
+        QuickJS.JSContext* ctx,
+        QuickJS.JSValue this_val,
+        int argc,
+        QuickJS.JSValue* argv,
+        int magic,
+        void* opaque
+    )
     {
         GCHandle handle = GCHandle.FromIntPtr((IntPtr)opaque);
         JSFunction func = (JSFunction)handle.Target!;
@@ -757,7 +840,6 @@ public sealed unsafe class JSContext : IDisposable
         }
     }
 
-
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static int NativeModuleInit(QuickJS.JSContext* ctx, QuickJS.JSModuleDef* m)
     {
@@ -798,5 +880,3 @@ public sealed unsafe class JSContext : IDisposable
 
     ~JSContext() => Dispose();
 }
-
-

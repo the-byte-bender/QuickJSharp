@@ -15,11 +15,14 @@ public class FunctionTests : IDisposable
     public void Can_Call_Managed_Function_From_JS()
     {
         bool called = false;
-        var func = _ctx.NewFunction((ctx, thisVal, args) =>
-        {
-            called = true;
-            return ctx.NewInt32(666);
-        }, "myFunc");
+        var func = _ctx.NewFunction(
+            (ctx, thisVal, args) =>
+            {
+                called = true;
+                return ctx.NewInt32(666);
+            },
+            "myFunc"
+        );
 
         _ctx.GlobalObject.SetProperty(_ctx, "myFunc", func);
 
@@ -32,15 +35,18 @@ public class FunctionTests : IDisposable
     [Fact]
     public void Function_Can_Access_Arguments_From_JS()
     {
-        var func = _ctx.NewFunction((ctx, thisVal, args) =>
-        {
-            int sum = 0;
-            foreach (var arg in args)
+        var func = _ctx.NewFunction(
+            (ctx, thisVal, args) =>
             {
-                sum += arg.ToInt32(ctx);
-            }
-            return ctx.NewInt32(sum);
-        }, "sum");
+                int sum = 0;
+                foreach (var arg in args)
+                {
+                    sum += arg.ToInt32(ctx);
+                }
+                return ctx.NewInt32(sum);
+            },
+            "sum"
+        );
 
         _ctx.GlobalObject.SetProperty(_ctx, "sum", func);
 
@@ -52,11 +58,14 @@ public class FunctionTests : IDisposable
     [Fact]
     public void Function_Can_Access_This_From_JS()
     {
-        var func = _ctx.NewFunction((ctx, thisVal, args) =>
-        {
-            var x = thisVal.GetProperty(ctx, "x");
-            return ctx.NewInt32(x.ToInt32(ctx) * 2);
-        }, "doubleX");
+        var func = _ctx.NewFunction(
+            (ctx, thisVal, args) =>
+            {
+                var x = thisVal.GetProperty(ctx, "x");
+                return ctx.NewInt32(x.ToInt32(ctx) * 2);
+            },
+            "doubleX"
+        );
 
         _ctx.Eval("globalThis.obj = { x: 21 };");
         var obj = _ctx.GlobalObject.GetProperty(_ctx, "obj");
@@ -70,10 +79,13 @@ public class FunctionTests : IDisposable
     [Fact]
     public void Function_Can_Throw_Exceptions()
     {
-        var func = _ctx.NewFunction((ctx, thisVal, args) =>
-        {
-            return ctx.ThrowTypeError("invalid argument count");
-        }, "failure");
+        var func = _ctx.NewFunction(
+            (ctx, thisVal, args) =>
+            {
+                return ctx.ThrowTypeError("invalid argument count");
+            },
+            "failure"
+        );
 
         var result = func.Call(_ctx, []);
         Assert.True(result.IsException);

@@ -9,9 +9,11 @@ internal static unsafe class JSUtils
 
     public static string GetString(byte* ptr)
     {
-        if (ptr == null) return null!;
+        if (ptr == null)
+            return null!;
         int len = 0;
-        while (ptr[len] != 0) len++;
+        while (ptr[len] != 0)
+            len++;
         return UTF8.GetString(ptr, len);
     }
 
@@ -20,7 +22,8 @@ internal static unsafe class JSUtils
     /// </summary>
     public static string GetString(byte* ptr, int length)
     {
-        if (ptr == null) return null!;
+        if (ptr == null)
+            return null!;
         return UTF8.GetString(ptr, length);
     }
 
@@ -43,4 +46,3 @@ internal static unsafe class JSUtils
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int GetMaxByteCount(int charCount) => UTF8.GetMaxByteCount(charCount) + 1;
 }
-

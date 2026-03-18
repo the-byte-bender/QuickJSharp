@@ -18,7 +18,13 @@ public sealed unsafe class JSRuntime : IDisposable
     /// <param name="args">A span of arguments (borrowed).</param>
     /// <param name="flags">Call flags (e.g. <see cref="JSCallFlags.Constructor"/>).</param>
     /// <returns>A <see cref="JSValue"/> that the engine will take ownership of.</returns>
-    public delegate JSValue JSClassCall(JSContext ctx, JSValue funcObj, JSValue thisVal, ReadOnlySpan<JSValue> args, JSCallFlags flags);
+    public delegate JSValue JSClassCall(
+        JSContext ctx,
+        JSValue funcObj,
+        JSValue thisVal,
+        ReadOnlySpan<JSValue> args,
+        JSCallFlags flags
+    );
 
     /// <summary>
     /// The garbage collection marking callback for a Javascript class instance.
@@ -77,9 +83,11 @@ public sealed unsafe class JSRuntime : IDisposable
     private ModuleNormalizeDelegate? _moduleNormalizer;
     private ModuleLoaderDelegate? _moduleLoader;
 
-    public JSRuntime() : this(QuickJS.JS_NewRuntime())
+    public JSRuntime()
+        : this(QuickJS.JS_NewRuntime())
     {
-        if (_rt == null) throw new InvalidOperationException("Failed to create QuickJS runtime.");
+        if (_rt == null)
+            throw new InvalidOperationException("Failed to create QuickJS runtime.");
     }
 
     internal JSRuntime(QuickJS.JSRuntime* rt)
@@ -95,18 +103,19 @@ public sealed unsafe class JSRuntime : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static JSRuntime FromNative(QuickJS.JSRuntime* rt)
     {
-        if (rt == null) throw new ArgumentNullException(nameof(rt));
+        if (rt == null)
+            throw new ArgumentNullException(nameof(rt));
 
         IntPtr ptr = (IntPtr)QuickJS.JS_GetRuntimeOpaque(rt);
         if (ptr != IntPtr.Zero)
         {
             var h = GCHandle.FromIntPtr(ptr);
-            if (h.Target is JSRuntime existing) return existing;
+            if (h.Target is JSRuntime existing)
+                return existing;
         }
 
         return new JSRuntime(rt);
     }
-
 
     /// <summary>
     /// Gets or sets the module normalizer for this runtime.
@@ -219,7 +228,8 @@ public sealed unsafe class JSRuntime : IDisposable
     public JSContext CreateContext()
     {
         QuickJS.JSContext* ctx = QuickJS.JS_NewContext(_rt);
-        if (ctx == null) throw new InvalidOperationException("Failed to create QuickJS context.");
+        if (ctx == null)
+            throw new InvalidOperationException("Failed to create QuickJS context.");
 
         var jsCtx = new JSContext(this, ctx);
         try
@@ -248,7 +258,8 @@ public sealed unsafe class JSRuntime : IDisposable
     public JSContext CreateRawContext()
     {
         QuickJS.JSContext* ctx = QuickJS.JS_NewContextRaw(_rt);
-        if (ctx == null) throw new InvalidOperationException("Failed to create raw QuickJS context.");
+        if (ctx == null)
+            throw new InvalidOperationException("Failed to create raw QuickJS context.");
 
         var jsCtx = new JSContext(this, ctx);
         try
@@ -292,10 +303,13 @@ public sealed unsafe class JSRuntime : IDisposable
     /// <remarks>
     /// This method has a very slight overhead over the native version. To squeeze just that bit more performence, consider using <see cref="DefineClassNative"/> with unmanaged function pointers.
     /// </remarks>
-    public void DefineClass(JSClassID classId, string name,
+    public void DefineClass(
+        JSClassID classId,
+        string name,
         JSClassFinalizerDelegate? finalizer = null,
         JSClassGCMarkDelegate? gcMark = null,
-        JSClassCall? call = null)
+        JSClassCall? call = null
+    )
     {
         if (classId.Value >= (uint)_classMetadata.Length)
         {
@@ -312,7 +326,7 @@ public sealed unsafe class JSRuntime : IDisposable
             class_name = pName,
             finalizer = finalizer != null ? &NativeFinalizer : null,
             gc_mark = gcMark != null ? &NativeGCMark : null,
-            call = call != null ? &NativeCall : null
+            call = call != null ? &NativeCall : null,
         };
 
         if (QuickJS.JS_NewClass(_rt, classId.NativeValue, &def) < 0)
@@ -330,13 +344,27 @@ public sealed unsafe class JSRuntime : IDisposable
     /// <param name="gcMark">The native GC mark function for class instances.</param>
     /// <param name="call">The native call function for class instances.</param>
     /// <remarks>
-    /// This provides the lowest possible overhead. The provided pointers must be 
-    /// compatible with the <c>Cdecl</c> calling convention 
+    /// This provides the lowest possible overhead. The provided pointers must be
+    /// compatible with the <c>Cdecl</c> calling convention
     /// </remarks>
-    public void DefineClassNative(JSClassID classId, string name,
+    public void DefineClassNative(
+        JSClassID classId,
+        string name,
         delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSValue, void> finalizer = null,
-        delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSValue, delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSGCObjectHeader*, void>, void> gcMark = null,
-        delegate* unmanaged[Cdecl]<QuickJS.JSContext*, QuickJS.JSValue, QuickJS.JSValue, int, QuickJS.JSValue*, int, QuickJS.JSValue> call = null)
+        delegate* unmanaged[Cdecl]<
+            QuickJS.JSRuntime*,
+            QuickJS.JSValue,
+            delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSGCObjectHeader*, void>,
+            void> gcMark = null,
+        delegate* unmanaged[Cdecl]<
+            QuickJS.JSContext*,
+            QuickJS.JSValue,
+            QuickJS.JSValue,
+            int,
+            QuickJS.JSValue*,
+            int,
+            QuickJS.JSValue> call = null
+    )
     {
         int nameLen = JSUtils.GetMaxByteCount(name.Length);
         byte* pName = stackalloc byte[nameLen];
@@ -347,7 +375,7 @@ public sealed unsafe class JSRuntime : IDisposable
             class_name = pName,
             finalizer = finalizer,
             gc_mark = gcMark,
-            call = call
+            call = call,
         };
 
         if (QuickJS.JS_NewClass(_rt, classId.NativeValue, &def) < 0)
@@ -364,7 +392,11 @@ public sealed unsafe class JSRuntime : IDisposable
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void GCMark(IntPtr markFuncPtr, QuickJS.JSValue val)
     {
-        QuickJS.JS_MarkValue(_rt, val, (delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSGCObjectHeader*, void>)markFuncPtr);
+        QuickJS.JS_MarkValue(
+            _rt,
+            val,
+            (delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSGCObjectHeader*, void>)markFuncPtr
+        );
     }
 
     private void UpdateModuleLoader()
@@ -375,10 +407,12 @@ public sealed unsafe class JSRuntime : IDisposable
         }
         else
         {
-            QuickJS.JS_SetModuleLoaderFunc(_rt,
+            QuickJS.JS_SetModuleLoaderFunc(
+                _rt,
                 ModuleNormalizer != null ? &NativeNormalize : null,
                 ModuleLoader != null ? &NativeLoader : null,
-                (void*)GCHandle.ToIntPtr(_handle));
+                (void*)GCHandle.ToIntPtr(_handle)
+            );
         }
     }
 
@@ -414,20 +448,20 @@ public sealed unsafe class JSRuntime : IDisposable
     {
         var jsContext = JSContext.FromNative(ctx);
         var runtime = FromNative(QuickJS.JS_GetRuntime(ctx));
-        if (runtime.ModuleNormalizer == null) return null;
+        if (runtime.ModuleNormalizer == null)
+            return null;
 
         try
         {
-            string? res = runtime.ModuleNormalizer(
-                jsContext,
-                JSUtils.GetString(base_name),
-                JSUtils.GetString(name));
+            string? res = runtime.ModuleNormalizer(jsContext, JSUtils.GetString(base_name), JSUtils.GetString(name));
 
-            if (res == null) return null;
+            if (res == null)
+                return null;
 
             int len = JSUtils.GetMaxByteCount(res.Length);
             byte* buffer = (byte*)QuickJS.js_malloc(ctx, (nuint)len);
-            if (buffer == null) return null;
+            if (buffer == null)
+                return null;
 
             JSUtils.GetUtf8(res, buffer, len);
             return buffer;
@@ -444,7 +478,8 @@ public sealed unsafe class JSRuntime : IDisposable
     {
         var jsContext = JSContext.FromNative(ctx);
         var runtime = FromNative(QuickJS.JS_GetRuntime(ctx));
-        if (runtime.ModuleLoader == null) return null;
+        if (runtime.ModuleLoader == null)
+            return null;
 
         try
         {
@@ -478,7 +513,11 @@ public sealed unsafe class JSRuntime : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static void NativeGCMark(QuickJS.JSRuntime* rt, QuickJS.JSValue val, delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSGCObjectHeader*, void> mark_func)
+    private static void NativeGCMark(
+        QuickJS.JSRuntime* rt,
+        QuickJS.JSValue val,
+        delegate* unmanaged[Cdecl]<QuickJS.JSRuntime*, QuickJS.JSGCObjectHeader*, void> mark_func
+    )
     {
         var runtime = FromNative(rt);
         uint classId = QuickJS.JS_GetClassID(val);
@@ -497,7 +536,14 @@ public sealed unsafe class JSRuntime : IDisposable
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
-    private static QuickJS.JSValue NativeCall(QuickJS.JSContext* ctx, QuickJS.JSValue func_obj, QuickJS.JSValue this_val, int argc, QuickJS.JSValue* argv, int flags)
+    private static QuickJS.JSValue NativeCall(
+        QuickJS.JSContext* ctx,
+        QuickJS.JSValue func_obj,
+        QuickJS.JSValue this_val,
+        int argc,
+        QuickJS.JSValue* argv,
+        int flags
+    )
     {
         var jsContext = JSContext.FromNative(ctx);
         var runtime = jsContext.Runtime;
@@ -511,7 +557,13 @@ public sealed unsafe class JSRuntime : IDisposable
                 if (call is not null)
                 {
                     var wrappedArgs = new ReadOnlySpan<JSValue>(argv, argc);
-                    return call(jsContext, new JSValue(func_obj), new JSValue(this_val), wrappedArgs, (JSCallFlags)flags).NativeValue;
+                    return call(
+                        jsContext,
+                        new JSValue(func_obj),
+                        new JSValue(this_val),
+                        wrappedArgs,
+                        (JSCallFlags)flags
+                    ).NativeValue;
                 }
             }
             catch (Exception ex)
@@ -525,4 +577,3 @@ public sealed unsafe class JSRuntime : IDisposable
 
     ~JSRuntime() => Dispose();
 }
-

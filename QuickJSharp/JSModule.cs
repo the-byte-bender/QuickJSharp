@@ -7,7 +7,7 @@ namespace QuickJSharp;
 /// A QuickJS module definition.
 /// </summary>
 /// <remarks>
-/// This is a transient view of a module definition, used during initialization 
+/// This is a transient view of a module definition, used during initialization
 /// or loading. It does not own the underlying native memory.
 /// </remarks>
 public readonly unsafe struct JSModule
@@ -63,7 +63,7 @@ public readonly unsafe struct JSModule
     /// Sets the value of a previously added export.
     /// </summary>
     /// <remarks>
-    /// This MUST be called within the Module Initialization callback. 
+    /// This MUST be called within the Module Initialization callback.
     /// Calling this at any other time will likely fail or cause undefined behavior.
     /// </remarks>
     /// <param name="name">The name of the export (must have been added via AddExport).</param>

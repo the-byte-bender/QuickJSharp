@@ -13,7 +13,7 @@ public interface IRuntimeExtension : IDisposable
     /// </summary>
     /// <param name="runtime">The runtime instance this extension is being attached to.</param>
     /// <remarks>
-    /// This is called when the extension is first added to the runtime. 
+    /// This is called when the extension is first added to the runtime.
     /// Use this to register class definitions or runtime-wide configuration.
     /// <para>
     /// Exceptions thrown here will be forwarded and will prevent the extension from being added to the runtime.

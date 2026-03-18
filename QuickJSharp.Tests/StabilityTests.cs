@@ -15,14 +15,17 @@ public class StabilityTests : IDisposable
     public void Pinning_Survives_GC_During_Callback()
     {
         bool resultValid = false;
-        var func = _ctx.NewFunction((ctx, thisVal, args) =>
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+        var func = _ctx.NewFunction(
+            (ctx, thisVal, args) =>
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
 
-            resultValid = true;
-            return ctx.NewInt32(100);
-        }, "gcFunc");
+                resultValid = true;
+                return ctx.NewInt32(100);
+            },
+            "gcFunc"
+        );
 
         var result = func.Call(_ctx, []);
 

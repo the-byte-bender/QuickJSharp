@@ -45,10 +45,14 @@ public class PropertyDefinitionTests : IDisposable
         var obj = _ctx.NewObject();
         var key = _ctx.NewAtom("prop");
 
-        var getter = _ctx.NewFunction((ctx, thisVal, args) =>
-        {
-            return ctx.NewInt32(100);
-        }, "getter", 0);
+        var getter = _ctx.NewFunction(
+            (ctx, thisVal, args) =>
+            {
+                return ctx.NewInt32(100);
+            },
+            "getter",
+            0
+        );
 
         var setter = JSValue.Undefined;
 
@@ -63,7 +67,9 @@ public class PropertyDefinitionTests : IDisposable
         var valAfterSet = obj.GetProperty(_ctx, key);
         Assert.Equal(100, valAfterSet.ToInt32(_ctx)); // Still 100
 
-        var result = _ctx.Eval("(() => { 'use strict'; try { objWithGetter.prop = 200; return 'success'; } catch(e) { return e.name; } })()");
+        var result = _ctx.Eval(
+            "(() => { 'use strict'; try { objWithGetter.prop = 200; return 'success'; } catch(e) { return e.name; } })()"
+        );
         Assert.Equal("TypeError", result.ToString(_ctx));
         result.Free(_ctx);
         valAfterSet.Free(_ctx);

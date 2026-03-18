@@ -87,11 +87,13 @@ public class SandboxingTests : IDisposable
         var victimObj = ctx1.Eval("({ name: 'victim' })");
 
         // Attacker function in ctx2 that pollutes the prototype of whatever it's passed
-        var attackerFunc = ctx2.Eval(@"
+        var attackerFunc = ctx2.Eval(
+            @"
             (function(obj) {
                 Object.getPrototypeOf(obj).pwned = 'pwned by ctx2';
             })
-        ");
+        "
+        );
 
         attackerFunc.Call(ctx2, [victimObj]);
 

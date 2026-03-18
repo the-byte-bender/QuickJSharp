@@ -35,8 +35,11 @@ public readonly unsafe struct JSValue
     public bool IsArray => QuickJS.JS_IsArray(_value);
     public bool IsProxy => QuickJS.JS_IsProxy(_value);
     public bool IsArrayBuffer => QuickJS.JS_IsArrayBuffer(_value);
+
     public bool IsFunction(JSContext ctx) => QuickJS.JS_IsFunction(ctx.NativeContext, _value);
+
     public bool IsConstructor(JSContext ctx) => QuickJS.JS_IsConstructor(ctx.NativeContext, _value);
+
     public bool IsError => QuickJS.JS_IsError(_value);
     public bool IsSymbol => Tag is QuickJS.JSTag.SYMBOL;
     public bool IsBigInt => Tag is QuickJS.JSTag.BIG_INT;
@@ -47,6 +50,7 @@ public readonly unsafe struct JSValue
     public bool IsUninitialized => Tag is QuickJS.JSTag.UNINITIALIZED;
 
     public JSClassID ClassID => new(QuickJS.JS_GetClassID(_value));
+
     public bool IsExtensible(JSContext ctx) => QuickJS.JS_IsExtensible(ctx.NativeContext, _value) != 0;
 
     private string DebuggerDisplay => Tag.ToString();
@@ -55,14 +59,20 @@ public readonly unsafe struct JSValue
     {
         get
         {
-            if (!IsObject) return IntPtr.Zero;
+            if (!IsObject)
+                return IntPtr.Zero;
             QuickJS.JSClassID classId;
             return (IntPtr)QuickJS.JS_GetAnyOpaque(_value, &classId);
         }
-        set { if (IsObject) QuickJS.JS_SetOpaque(_value, (void*)value); }
+        set
+        {
+            if (IsObject)
+                QuickJS.JS_SetOpaque(_value, (void*)value);
+        }
     }
 
-    public IntPtr GetOpaque(QuickJS.JSClassID classId) => IsObject ? (IntPtr)QuickJS.JS_GetOpaque(_value, classId) : IntPtr.Zero;
+    public IntPtr GetOpaque(QuickJS.JSClassID classId) =>
+        IsObject ? (IntPtr)QuickJS.JS_GetOpaque(_value, classId) : IntPtr.Zero;
 
     public bool TryToInt32(JSContext ctx, out int result)
     {
@@ -76,7 +86,8 @@ public readonly unsafe struct JSValue
         return false;
     }
 
-    public int ToInt32(JSContext ctx) => TryToInt32(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Int32");
+    public int ToInt32(JSContext ctx) =>
+        TryToInt32(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Int32");
 
     public bool TryToUint32(JSContext ctx, out uint result)
     {
@@ -90,7 +101,8 @@ public readonly unsafe struct JSValue
         return false;
     }
 
-    public uint ToUint32(JSContext ctx) => TryToUint32(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Uint32");
+    public uint ToUint32(JSContext ctx) =>
+        TryToUint32(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Uint32");
 
     public bool TryToInt64(JSContext ctx, out long result)
     {
@@ -104,7 +116,8 @@ public readonly unsafe struct JSValue
         return false;
     }
 
-    public long ToInt64(JSContext ctx) => TryToInt64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Int64");
+    public long ToInt64(JSContext ctx) =>
+        TryToInt64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Int64");
 
     public bool TryToBigInt64(JSContext ctx, out long result)
     {
@@ -118,7 +131,8 @@ public readonly unsafe struct JSValue
         return false;
     }
 
-    public long ToBigInt64(JSContext ctx) => TryToBigInt64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to BigInt64");
+    public long ToBigInt64(JSContext ctx) =>
+        TryToBigInt64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to BigInt64");
 
     public bool TryToBigUint64(JSContext ctx, out ulong result)
     {
@@ -132,7 +146,8 @@ public readonly unsafe struct JSValue
         return false;
     }
 
-    public ulong ToBigUint64(JSContext ctx) => TryToBigUint64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to BigUint64");
+    public ulong ToBigUint64(JSContext ctx) =>
+        TryToBigUint64(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to BigUint64");
 
     public bool TryToDouble(JSContext ctx, out double result)
     {
@@ -146,7 +161,8 @@ public readonly unsafe struct JSValue
         return false;
     }
 
-    public double ToDouble(JSContext ctx) => TryToDouble(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Double");
+    public double ToDouble(JSContext ctx) =>
+        TryToDouble(ctx, out var res) ? res : throw new InvalidOperationException("Cannot convert to Double");
 
     public bool ToBoolean(JSContext ctx)
     {
@@ -159,18 +175,29 @@ public readonly unsafe struct JSValue
         {
             QuickJS.JSValue exVal = QuickJS.JS_GetException(ctx.NativeContext);
             byte* exPtr = QuickJS.JS_ToCString(ctx.NativeContext, exVal);
-            try { return exPtr == null ? "Exception (could not stringify)" : Marshal.PtrToStringUTF8((IntPtr)exPtr); }
+            try
+            {
+                return exPtr == null ? "Exception (could not stringify)" : Marshal.PtrToStringUTF8((IntPtr)exPtr);
+            }
             finally
             {
-                if (exPtr != null) QuickJS.JS_FreeCString(ctx.NativeContext, exPtr);
+                if (exPtr != null)
+                    QuickJS.JS_FreeCString(ctx.NativeContext, exPtr);
                 QuickJS.JS_FreeValue(ctx.NativeContext, exVal);
             }
         }
 
         byte* ptr = QuickJS.JS_ToCString(ctx.NativeContext, _value);
-        if (ptr == null) return null;
-        try { return Marshal.PtrToStringUTF8((IntPtr)ptr); }
-        finally { QuickJS.JS_FreeCString(ctx.NativeContext, ptr); }
+        if (ptr == null)
+            return null;
+        try
+        {
+            return Marshal.PtrToStringUTF8((IntPtr)ptr);
+        }
+        finally
+        {
+            QuickJS.JS_FreeCString(ctx.NativeContext, ptr);
+        }
     }
 
     /// <summary>
@@ -182,12 +209,14 @@ public readonly unsafe struct JSValue
 
         nuint len;
         byte* ptr = QuickJS.JS_ToCStringLen(ctx.NativeContext, &len, _value);
-        if (ptr == null) return false;
+        if (ptr == null)
+            return false;
 
         try
         {
             int intLen = (int)len;
-            if (buffer.Length < intLen) return false;
+            if (buffer.Length < intLen)
+                return false;
             new ReadOnlySpan<byte>(ptr, intLen).CopyTo(buffer);
             written = intLen;
             return true;
@@ -200,7 +229,8 @@ public readonly unsafe struct JSValue
 
     public JSValue GetProperty(JSContext ctx, string name)
     {
-        if (name is null) return Exception;
+        if (name is null)
+            return Exception;
         int maxLen = JSUtils.GetMaxByteCount(name.Length);
         if (maxLen <= 512)
         {
@@ -217,7 +247,10 @@ public readonly unsafe struct JSValue
                 return new JSValue(QuickJS.JS_GetPropertyStr(ctx.NativeContext, _value, pName));
             }
         }
-        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
     }
 
     public JSValue GetProperty(JSContext ctx, uint index)
@@ -241,7 +274,8 @@ public readonly unsafe struct JSValue
     /// <param name="value">The value to set. This function consumes the reference of the value. If you need to keep using it, pass <c>value.Duplicate(ctx)</c>.</param>
     public void SetProperty(JSContext ctx, string name, JSValue value)
     {
-        if (name is null) return;
+        if (name is null)
+            return;
         int maxLen = JSUtils.GetMaxByteCount(name.Length);
         if (maxLen <= 512)
         {
@@ -261,7 +295,10 @@ public readonly unsafe struct JSValue
                     throw new JSException("Failed to set property: " + name);
             }
         }
-        finally { System.Buffers.ArrayPool<byte>.Shared.Return(array); }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(array);
+        }
     }
 
     /// <summary>
@@ -300,7 +337,8 @@ public readonly unsafe struct JSValue
     /// </remarks>
     public void DefineProperty(JSContext ctx, string name, JSValue value, JSPropertyFlags flags = JSPropertyFlags.CWEL)
     {
-        if (name is null) return;
+        if (name is null)
+            return;
         int len = JSUtils.GetMaxByteCount(name.Length);
         byte* pName = stackalloc byte[len];
         JSUtils.GetUtf8(name, pName, len);
@@ -334,10 +372,19 @@ public readonly unsafe struct JSValue
     /// <param name="setter">The setter function, or <see cref="JSValue.Undefined"/>. Consumes the reference.</param>
     /// <param name="flags">The accessibility flags.</param>
     /// <remarks>
-    /// This is the recommended way to implement properties that wrap managed logic. 
-    public void DefineProperty(JSContext ctx, JSAtom atom, JSValue getter, JSValue setter, JSPropertyFlags flags = JSPropertyFlags.Enumerable | JSPropertyFlags.Configurable)
+    /// This is the recommended way to implement properties that wrap managed logic.
+    public void DefineProperty(
+        JSContext ctx,
+        JSAtom atom,
+        JSValue getter,
+        JSValue setter,
+        JSPropertyFlags flags = JSPropertyFlags.Enumerable | JSPropertyFlags.Configurable
+    )
     {
-        if (QuickJS.JS_DefinePropertyGetSet(ctx.NativeContext, _value, atom, getter._value, setter._value, (int)flags) < 0)
+        if (
+            QuickJS.JS_DefinePropertyGetSet(ctx.NativeContext, _value, atom, getter._value, setter._value, (int)flags)
+            < 0
+        )
             throw new JSException("Failed to define get/set property for atom: " + atom.Value);
     }
 
@@ -353,13 +400,30 @@ public readonly unsafe struct JSValue
     /// <remarks>
     /// This method requires explicit 'HAS' bits (e.g. <see cref="JSPropertyFlags.HasValue"/>) to be set in the <paramref name="flags"/> parameter to tell the engine which parts of the descriptor you are providing.
     /// <para>
-    /// Unlike the other <c>DefineProperty</c> helpers, this method DOES NOT consume your references. 
+    /// Unlike the other <c>DefineProperty</c> helpers, this method DOES NOT consume your references.
     /// You must <c>Free(ctx)</c> on <paramref name="value"/>, <paramref name="getter"/>, and <paramref name="setter"/>, whatever is defined, separately.
     /// </para>
     /// </remarks>
-    public void DefinePropertyRaw(JSContext ctx, JSAtom atom, JSValue value, JSValue getter, JSValue setter, JSPropertyFlags flags)
+    public void DefinePropertyRaw(
+        JSContext ctx,
+        JSAtom atom,
+        JSValue value,
+        JSValue getter,
+        JSValue setter,
+        JSPropertyFlags flags
+    )
     {
-        if (QuickJS.JS_DefineProperty(ctx.NativeContext, _value, atom, value.NativeValue, getter.NativeValue, setter.NativeValue, (int)flags) < 0)
+        if (
+            QuickJS.JS_DefineProperty(
+                ctx.NativeContext,
+                _value,
+                atom,
+                value.NativeValue,
+                getter.NativeValue,
+                setter.NativeValue,
+                (int)flags
+            ) < 0
+        )
             throw new JSException("Failed to define raw property for atom: " + atom.Value);
     }
 
@@ -369,7 +433,9 @@ public readonly unsafe struct JSValue
     {
         fixed (JSValue* pArgs = args)
         {
-            return new JSValue(QuickJS.JS_Call(ctx.NativeContext, _value, thisVal._value, args.Length, (QuickJS.JSValue*)pArgs));
+            return new JSValue(
+                QuickJS.JS_Call(ctx.NativeContext, _value, thisVal._value, args.Length, (QuickJS.JSValue*)pArgs)
+            );
         }
     }
 
@@ -380,14 +446,15 @@ public readonly unsafe struct JSValue
     /// <param name="isConstructor">Whether the object should be considered a constructor.</param>
     /// <returns><see langword="true"/> if the bit was successfully updated, <see langword="false"/> otherwise.</returns>
     /// <remarks>
-    /// This method manages the internal <c>is_constructor</c> metadata of a Javascript object, which 
+    /// This method manages the internal <c>is_constructor</c> metadata of a Javascript object, which
     /// determines if the object can be validly invoked using the <c>new</c> keyword.
     /// <para>
     /// Unlike js constructors, when a native (Dotnet) function is invoked as a constructor (via <c>new</c>, the engine does not pre-allocate a <c>this</c> object for the callback. The <c>thisVal</c> parameter passed to the callback will be the <c>new_target</c> (the constructor function itself or a derived constructor in an inheritance chain).
     ///The callback is responsible for manually allocating the new instance (See <see cref="JSContext.NewObjectProtoClass"/> with the prototype from <c>new_target</c>) and returning it.
     /// </para>
     /// </remarks>
-    public bool SetConstructorBit(JSContext ctx, bool isConstructor) => QuickJS.JS_SetConstructorBit(ctx.NativeContext, _value, isConstructor);
+    public bool SetConstructorBit(JSContext ctx, bool isConstructor) =>
+        QuickJS.JS_SetConstructorBit(ctx.NativeContext, _value, isConstructor);
 
     public JSValue Duplicate(JSContext ctx)
     {
@@ -403,6 +470,8 @@ public readonly unsafe struct JSValue
         left._value.tag == right._value.tag && left._value.u.ptr == right._value.u.ptr;
 
     public static bool operator !=(JSValue left, JSValue right) => !(left == right);
+
     public override bool Equals(object? obj) => obj is JSValue other && this == other;
+
     public override int GetHashCode() => HashCode.Combine(_value.tag, (IntPtr)_value.u.ptr);
 }

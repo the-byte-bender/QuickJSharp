@@ -23,5 +23,5 @@ public enum NamingPreference
     /// <summary>
     /// Convert the C# name to SCREAMING_SNAKE_CASE, with all uppercase letters and underscores between words.
     /// </summary>
-    ScreamingSnakeCase
+    ScreamingSnakeCase,
 }

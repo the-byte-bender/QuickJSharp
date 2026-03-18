@@ -49,13 +49,16 @@ public abstract class BindingExtension : IRuntimeExtension
 
         void Visit(ClassBinding binding)
         {
-            if (!visited.Add(binding.ClrType)) return;
+            if (!visited.Add(binding.ClrType))
+                return;
             if (binding.ParentType is { } parentType)
             {
-                var parent = classBindings.FirstOrDefault(b => b.ClrType == parentType)
+                var parent =
+                    classBindings.FirstOrDefault(b => b.ClrType == parentType)
                     ?? throw new InvalidOperationException(
-                        $"No binding registered for parent type '{parentType.FullName}' " +
-                        $"required by '{binding.ClrType.FullName}'.");
+                        $"No binding registered for parent type '{parentType.FullName}' "
+                            + $"required by '{binding.ClrType.FullName}'."
+                    );
                 Visit(parent);
             }
             sorted.Add(binding);
