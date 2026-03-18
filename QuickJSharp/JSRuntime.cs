@@ -74,6 +74,8 @@ public sealed unsafe class JSRuntime : IDisposable
     private GCHandle _handle;
     private JSClassMetadata[] _classMetadata = new JSClassMetadata[64];
     private readonly List<IRuntimeExtension> _extensions = [];
+    private ModuleNormalizeDelegate? _moduleNormalizer;
+    private ModuleLoaderDelegate? _moduleLoader;
 
     public JSRuntime() : this(QuickJS.JS_NewRuntime())
     {
@@ -111,10 +113,10 @@ public sealed unsafe class JSRuntime : IDisposable
     /// </summary>
     public ModuleNormalizeDelegate? ModuleNormalizer
     {
-        get;
+        get => _moduleNormalizer;
         set
         {
-            field = value;
+            _moduleNormalizer = value;
             UpdateModuleLoader();
         }
     }
@@ -124,10 +126,10 @@ public sealed unsafe class JSRuntime : IDisposable
     /// </summary>
     public ModuleLoaderDelegate? ModuleLoader
     {
-        get;
+        get => _moduleLoader;
         set
         {
-            field = value;
+            _moduleLoader = value;
             UpdateModuleLoader();
         }
     }
