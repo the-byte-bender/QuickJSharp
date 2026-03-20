@@ -16,6 +16,6 @@ namespace QuickJSharp.Bindings;
 /// construct a new instance per runtime.
 /// </remarks>
 /// <seealso cref="BindingExtension"/>
-/// <seealso cref="JSNamingConvention"/>
+/// <seealso cref="JSNamingConventionAttribute"/>
 [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
 public sealed class JSBindingsRegistryAttribute : Attribute { }
