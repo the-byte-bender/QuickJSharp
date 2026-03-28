@@ -5,7 +5,8 @@ namespace QuickJSharp.Bindings;
 /// </summary>
 /// <remarks>
 /// Bindings describe how a C# concept is exposed to JavaScript.
-/// This class is primarily intended for use by the QuickJSharp source generator (<c>QuickJSharp.Bindings.Generators</c>), which emits concrete implementations
+/// This class is primarily intended for use by the QuickJSharp source generator
+/// (<c>QuickJSharp.Bindings.Generators</c>), which emits concrete implementations
 /// automatically from attributed classes. You can implement this directly if you
 /// need to define bindings manually, but in most cases the generator is the
 /// better path.
@@ -18,6 +19,20 @@ namespace QuickJSharp.Bindings;
 /// </remarks>
 public abstract class BindingBase : IDisposable
 {
+    /// <summary>
+    /// The registry this binding belongs to
+    /// </summary>
+    public BindingsRegistry Registry { get; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BindingBase"/> class with the specified registry.
+    /// </summary>
+    /// <param name="registry"></param>
+    protected BindingBase(BindingsRegistry registry)
+    {
+        Registry = registry;
+    }
+
     /// <summary>
     /// Called once when this binding is registered with a <see cref="JSRuntime"/>.
     /// </summary>

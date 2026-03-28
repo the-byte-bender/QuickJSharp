@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace QuickJSharp.Bindings;
 
 /// <summary>
@@ -6,38 +8,62 @@ namespace QuickJSharp.Bindings;
 /// contexts
 /// </summary>
 /// <seealso cref="JSBindingsRegistryAttribute"/>
-public abstract class BindingExtension : IRuntimeExtension
+public abstract class BindingsRegistry : IRuntimeExtension
 {
-    private readonly IReadOnlyList<BindingBase> _bindings;
+    private IReadOnlyList<BindingBase> _bindings = [];
+    private Dictionary<Type, ClassBinding> _classBindingMap = [];
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="BindingExtension"/> class.
+    /// Initializes a new instance of the <see cref="BindingsRegistry"/> class.
     /// </summary>
-    /// <param name="bindings">The bindings to include in this extension.</param>
-    protected BindingExtension(params BindingBase[] bindings)
+    protected BindingsRegistry(IEnumerable<Func<BindingsRegistry, BindingBase>> factories)
     {
-        _bindings = Sort([.. bindings]);
+        _bindings = Sort(factories.Select(f => f(this)).ToList());
+    }
+
+    /// <summary>
+    /// Registers a binding for the specified CLR type. This is used by the source generator to associate bindings with the top level types they represent.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void RegisterForClass<T>(ClassBinding binding)
+    {
+        _classBindingMap.Add(typeof(T), binding);
+    }
+
+    /// <summary>
+    /// Gets the binding for the specified CLR type.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public ClassBinding? GetBindingFor<T>()
+    {
+        return _classBindingMap.GetValueOrDefault(typeof(T));
     }
 
     /// <inheritdoc/>
     public void Initialize(JSRuntime runtime)
     {
         foreach (var binding in _bindings)
+        {
             binding.OnRuntime(runtime);
+        }
     }
 
     /// <inheritdoc/>
     public void SetupContext(JSContext context)
     {
         foreach (var binding in _bindings)
+        {
             binding.OnContext(context);
+        }
     }
 
     /// <inheritdoc/>
     public void Dispose()
     {
         foreach (var binding in _bindings)
+        {
             binding.Dispose();
+        }
     }
 
     static IReadOnlyList<BindingBase> Sort(List<BindingBase> bindings)

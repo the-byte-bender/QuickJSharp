@@ -5,7 +5,7 @@ namespace QuickJSharp.Bindings;
 /// <c>QuickJSharp.Bindings.Generators</c>.
 /// </summary>
 /// <remarks>
-/// The marked class must extend <see cref="BindingExtension"/> and be <c>partial</c>,
+/// The marked class must extend <see cref="BindingsRegistry"/> and be <c>partial</c>,
 /// declaring the following constructor which the source generator will implement:
 /// <code>
 /// public partial MyRegistry();
@@ -15,7 +15,7 @@ namespace QuickJSharp.Bindings;
 /// <see cref="JSRuntime"/>. To use the same bindings across multiple runtimes,
 /// construct a new instance per runtime.
 /// </remarks>
-/// <seealso cref="BindingExtension"/>
+/// <seealso cref="BindingsRegistry"/>
 /// <seealso cref="JSNamingConventionAttribute"/>
 [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = false)]
 public sealed class JSBindingsRegistryAttribute : Attribute { }

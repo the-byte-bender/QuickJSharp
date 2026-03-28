@@ -71,3 +71,4 @@ docs/api/
 quickjs.dll
 
 .vscode
+QuickJSharp.Demo/Generated
